@@ -7,7 +7,6 @@ import (
 )
 
 const num_floors = 4
-const 
 
 func main() {
 
