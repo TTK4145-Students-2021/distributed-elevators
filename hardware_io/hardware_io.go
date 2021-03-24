@@ -1,9 +1,8 @@
 package hardware_io
 
 import (
-	"fmt"
-
 	"./elevio"
+	"fmt"
 )
 
 func StartElevatorHardware(numFloors int) {
