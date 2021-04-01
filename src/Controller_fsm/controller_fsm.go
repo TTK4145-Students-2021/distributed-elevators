@@ -1,7 +1,7 @@
 package Controller_fsm
 
 import (
-	"../hardware_io/elevio"
+	"../hardware_io"
 	"fmt"
 )
 
@@ -18,21 +18,21 @@ const (
 
 type Elevator struct {
 	Floor     int
-	Direction elevio.MotorDirection
+	Direction hardware_io.MotorDirection
 	State     State
 	Orders    [N_FLOORS][N_BUTTONS]bool
 	Lights    [N_FLOORS][N_BUTTONS]bool
 }
 
-func StartElevatorController(localOrdersCh <-chan elevio.ButtonEvent) {
+func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 	println("# Starting Controller FSM #")
-	elevio.Init("localhost:15657", N_FLOORS)
+	hardware_io.Init("localhost:15657", N_FLOORS)
 
 	/* init channels */
 	floorSensorCh := make(chan int)
 	// orderCompleteCh := make(chan int)
 
-	go elevio.PollFloorSensor(floorSensorCh)
+	go hardware_io.PollFloorSensor(floorSensorCh)
 
 	var elevator Elevator
 
@@ -47,11 +47,11 @@ func StartElevatorController(localOrdersCh <-chan elevio.ButtonEvent) {
 				elevator.Direction = new_direction
 
 				if new_state == ST_DoorOpen {
-					elevio.SetDoorOpenLamp(1)
+					hardware_io.SetDoorOpenLamp(1)
 					startTimer()
 				}
-				elevio.SetMotorDirection(elevator.Direction)
-				elevio.SetFloorIndicator(elevator.Floor)
+				hardware_io.SetMotorDirection(elevator.Direction)
+				hardware_io.SetFloorIndicator(elevator.Floor)
 
 				/* 	TODO:
 				Send state change to master elevator
@@ -65,21 +65,21 @@ func StartElevatorController(localOrdersCh <-chan elevio.ButtonEvent) {
 			switch new_state {
 			case ST_Idle:
 				println("State Idle")
-				elevator.Direction = elevio.MD_Stop
+				elevator.Direction = hardware_io.MD_Stop
 				break
 			case ST_Moving:
 				break
 			case ST_DoorOpen:
-				elevator.Direction = elevio.MD_Stop
-				elevio.SetDoorOpenLamp(true)
+				elevator.Direction = hardware_io.MD_Stop
+				hardware_io.SetDoorOpenLamp(true)
 				/* 	TODO:
 				startTimer()
 				Send state change to master elevator
 				Send confirmed order to Order module
 				*/
 			}
-			elevio.SetMotorDirection(elevator.Direction)
-			elevio.SetFloorIndicator(elevator.Floor)
+			hardware_io.SetMotorDirection(elevator.Direction)
+			hardware_io.SetFloorIndicator(elevator.Floor)
 
 		case in := <-localOrdersCh:
 			/* simple case used for testing new orders direct*/
@@ -105,6 +105,6 @@ func StartElevatorController(localOrdersCh <-chan elevio.ButtonEvent) {
 // 		return ST_Idle
 // 	}
 // }
-// func order_in_direction(floor int, direction elevio.MotorDirection, order Orders) {
+// func order_in_direction(floor int, direction hardware_io.MotorDirection, order Orders) {
 // 	return
 // }
