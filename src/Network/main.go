@@ -1,13 +1,14 @@
 package main
 
 import (
-	"./network/bcast"
-	"./network/localip"
-	"./network/peers"
 	"flag"
 	"fmt"
 	"os"
 	"time"
+
+	"./network/bcast"
+	"./network/localip"
+	"./network/peers"
 )
 
 // We define some custom struct to send over the network.
@@ -43,7 +44,7 @@ func main() {
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, peerTxEnable)
+	go peers.Transmitter(15647, id, false, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
 	// We make channels for sending and receiving our custom data types
@@ -70,12 +71,15 @@ func main() {
 		select {
 		case p := <-peerUpdateCh:
 			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
+			for _, v := range p.Peers {
+				fmt.Printf("  Peer: id:%s, isMaster:%t   \n\n", v.Id, v.IsMaster)
 
-		case a := <-helloRx:
-			fmt.Printf("Received: %#v\n", a)
+			}
+			//fmt.Printf("  New:      %q\n", p.New)
+			//fmt.Printf("  Lost:     %q\n", p.Lost)
+
+			//case a := <-helloRx:
+			//fmt.Printf("Received: %#v\n", a)
 		}
 	}
 }

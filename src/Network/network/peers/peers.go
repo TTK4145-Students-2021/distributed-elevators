@@ -1,26 +1,40 @@
 package peers
 
 import (
-	"../conn"
 	"fmt"
 	"net"
 	"sort"
 	"time"
+
+	"../conn"
 )
 
+type Peer struct {
+	Id       string
+	IsMaster bool
+	lastSeen time.Time
+}
 type PeerUpdate struct {
-	Peers []string
-	New   string
-	Lost  []string
+	Peers []Peer
+	//New   Peer
+	//Lost  []Peer
 }
 
 const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
-func Transmitter(port int, id string, transmitEnable <-chan bool) {
+func Transmitter(port int, id string, isMaster bool, transmitEnable <-chan bool) {
 
 	conn := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
+
+	var isMasterByte byte
+	if isMaster {
+		isMasterByte = 1
+	}
+
+	msg := []byte(id)
+	msg = append(msg, isMasterByte)
 
 	enable := true
 	for {
@@ -29,7 +43,7 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 		case <-time.After(interval):
 		}
 		if enable {
-			conn.WriteTo([]byte(id), addr)
+			conn.WriteTo(msg, addr)
 		}
 	}
 }
@@ -37,8 +51,9 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 	var buf [1024]byte
-	var p PeerUpdate
-	lastSeen := make(map[string]time.Time)
+	var p Peer
+	var pUpdate PeerUpdate
+	lastSeen := make(map[string]Peer)
 
 	conn := conn.DialBroadcastUDP(port)
 
@@ -47,41 +62,50 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 		conn.SetReadDeadline(time.Now().Add(interval))
 		n, _, _ := conn.ReadFrom(buf[0:])
-
-		id := string(buf[:n])
-
-		// Adding new connection
-		p.New = ""
-		if id != "" {
-			if _, idExists := lastSeen[id]; !idExists {
-				p.New = id
-				updated = true
+		id := ""
+		isMaster := false
+		if n > 1 {
+			id = string(buf[:n])
+			if buf[n-1] == 1 {
+				isMaster = true
 			}
-
-			lastSeen[id] = time.Now()
 		}
 
-		// Removing dead connection
-		p.Lost = make([]string, 0)
-		for k, v := range lastSeen {
-			if time.Now().Sub(v) > timeout {
+		// Adding new connection
+		if id != "" {
+			if _, idExists := lastSeen[id]; !idExists {
+				p.Id = id
+				p.IsMaster = isMaster
+				p.lastSeen = time.Now()
 				updated = true
-				p.Lost = append(p.Lost, k)
+				lastSeen[id] = p
+			} else {
+				//TODO: Determine if map should hold pointer to struct so value can be changed directly
+				p = lastSeen[id]
+				p.lastSeen = time.Now()
+				lastSeen[id] = p
+			}
+		}
+		// Removing dead connection
+		for k, v := range lastSeen {
+			if time.Since(v.lastSeen) > timeout {
+				updated = true
+				//p.Lost = append(p.Lost, k)
 				delete(lastSeen, k)
 			}
 		}
 
 		// Sending update
 		if updated {
-			p.Peers = make([]string, 0, len(lastSeen))
+			pUpdate.Peers = make([]Peer, 0, len(lastSeen))
 
-			for k, _ := range lastSeen {
-				p.Peers = append(p.Peers, k)
+			for _, v := range lastSeen {
+				pUpdate.Peers = append(pUpdate.Peers, v)
 			}
-
-			sort.Strings(p.Peers)
-			sort.Strings(p.Lost)
-			peerUpdateCh <- p
+			sort.Slice(pUpdate.Peers, func(i, j int) bool {
+				return pUpdate.Peers[i].Id > pUpdate.Peers[j].Id
+			})
+			peerUpdateCh <- pUpdate
 		}
 	}
 }
