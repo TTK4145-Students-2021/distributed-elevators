@@ -65,7 +65,7 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 		id := ""
 		isMaster := false
 		if n > 1 {
-			id = string(buf[:n])
+			id = string(buf[:n-1])
 			if buf[n-1] == 1 {
 				isMaster = true
 			}
