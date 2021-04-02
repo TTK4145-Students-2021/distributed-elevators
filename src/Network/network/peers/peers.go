@@ -1,16 +1,19 @@
 package peers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"sort"
 	"time"
 
 	"../conn"
+	"../localip"
 )
 
 type Peer struct {
 	Id       string
+	Ip       string
 	IsMaster bool
 	lastSeen time.Time
 }
@@ -28,11 +31,16 @@ func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable
 	conn := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
 
-	isMasterByte := byte(1)
+	localIP, err := localip.LocalIP()
+	if err != nil {
+		fmt.Println(err)
+		localIP = "DISCONNECTED"
+	}
+
 	isMaster := true
 
-	msg := []byte(id)
-	msg = append(msg, isMasterByte)
+	msgPeer := Peer{id, localIP, isMaster, time.Now()}
+	jsonMsg, _ := json.Marshal(msgPeer)
 
 	enable := true
 	for {
@@ -41,14 +49,14 @@ func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable
 		case <-time.After(interval):
 		case isMaster = <-isMasterUpdate:
 			if isMaster {
-				isMasterByte = 1
+				msgPeer.IsMaster = true
 			} else {
-				isMasterByte = 0
+				msgPeer.IsMaster = false
 			}
-			msg[len(msg)-1] = isMasterByte
+			jsonMsg, _ = json.Marshal(msgPeer)
 		}
 		if enable {
-			conn.WriteTo(msg, addr)
+			conn.WriteTo(jsonMsg, addr)
 		}
 
 	}
@@ -68,34 +76,16 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 		conn.SetReadDeadline(time.Now().Add(interval))
 		n, _, _ := conn.ReadFrom(buf[0:])
-		id := ""
-		isMaster := false
-		if n > 1 {
-			id = string(buf[:n-1])
-			if buf[n-1] == 1 {
-				isMaster = true
-			}
-		}
-
-		// Adding new connection
-		if id != "" {
-			if _, idExists := lastSeen[id]; !idExists {
-				p.Id = id
-				p.IsMaster = isMaster
-				p.lastSeen = time.Now()
+		err := json.Unmarshal(buf[:n], &p)
+		// Adding new connection, check if new peer or master status has changed
+		if err == nil {
+			p.lastSeen = time.Now()
+			if _, idExists := lastSeen[p.Id]; !idExists {
 				updated = true
-				lastSeen[id] = p
-			} else {
-				//TODO: Determine if map should hold pointer to struct so value can be changed directly
-				p = lastSeen[id]
-				p.lastSeen = time.Now()
-				// Check if master status has changed
-				if lastSeen[id].IsMaster != isMaster {
-					p.IsMaster = isMaster
-					updated = true
-				}
-				lastSeen[id] = p
+			} else if lastSeen[p.Id].IsMaster != p.IsMaster {
+				updated = true
 			}
+			lastSeen[p.Id] = p
 		}
 		// Removing dead connection
 		for k, v := range lastSeen {

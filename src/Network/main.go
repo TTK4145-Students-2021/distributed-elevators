@@ -72,7 +72,7 @@ func main() {
 		case p := <-peerUpdateCh:
 			fmt.Printf("Peer update:\n")
 			for _, v := range p.Peers {
-				fmt.Printf("  Peer: id:%s, isMaster:%t   \n\n", v.Id, v.IsMaster)
+				fmt.Printf("  Peer: id:%s, ip: %s, isMaster:%t   \n\n", v.Id, v.Ip, v.IsMaster)
 
 			}
 			//case a := <-helloRx:
