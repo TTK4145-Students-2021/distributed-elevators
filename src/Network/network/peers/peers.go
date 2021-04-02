@@ -23,15 +23,13 @@ type PeerUpdate struct {
 const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
-func Transmitter(port int, id string, isMaster bool, transmitEnable <-chan bool) {
+func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable <-chan bool) {
 
 	conn := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
 
-	var isMasterByte byte
-	if isMaster {
-		isMasterByte = 1
-	}
+	isMasterByte := byte(1)
+	isMaster := true
 
 	msg := []byte(id)
 	msg = append(msg, isMasterByte)
@@ -41,10 +39,18 @@ func Transmitter(port int, id string, isMaster bool, transmitEnable <-chan bool)
 		select {
 		case enable = <-transmitEnable:
 		case <-time.After(interval):
+		case isMaster = <-isMasterUpdate:
+			if isMaster {
+				isMasterByte = 1
+			} else {
+				isMasterByte = 0
+			}
+			msg[len(msg)-1] = isMasterByte
 		}
 		if enable {
 			conn.WriteTo(msg, addr)
 		}
+
 	}
 }
 
@@ -83,6 +89,11 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 				//TODO: Determine if map should hold pointer to struct so value can be changed directly
 				p = lastSeen[id]
 				p.lastSeen = time.Now()
+				// Check if master status has changed
+				if lastSeen[id].IsMaster != isMaster {
+					p.IsMaster = isMaster
+					updated = true
+				}
 				lastSeen[id] = p
 			}
 		}
@@ -90,7 +101,6 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 		for k, v := range lastSeen {
 			if time.Since(v.lastSeen) > timeout {
 				updated = true
-				//p.Lost = append(p.Lost, k)
 				delete(lastSeen, k)
 			}
 		}

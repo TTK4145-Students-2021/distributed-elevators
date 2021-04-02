@@ -44,7 +44,8 @@ func main() {
 	// We can disable/enable the transmitter after it has been started.
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, false, peerTxEnable)
+	isMasterUpdate := make(chan bool)
+	go peers.Transmitter(15647, id, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
 	// We make channels for sending and receiving our custom data types
@@ -65,7 +66,6 @@ func main() {
 			time.Sleep(1 * time.Second)
 		}
 	}()
-
 	fmt.Println("Started")
 	for {
 		select {
@@ -75,9 +75,6 @@ func main() {
 				fmt.Printf("  Peer: id:%s, isMaster:%t   \n\n", v.Id, v.IsMaster)
 
 			}
-			//fmt.Printf("  New:      %q\n", p.New)
-			//fmt.Printf("  Lost:     %q\n", p.Lost)
-
 			//case a := <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)
 		}
