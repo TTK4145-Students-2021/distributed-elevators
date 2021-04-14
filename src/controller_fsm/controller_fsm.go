@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"../hardware_io"
+	hw "../hardware_io"
 )
 
 const N_FLOORS = 4
@@ -49,16 +49,16 @@ Orders // Lights
 3	|	UP	Down	Cab
 4	|	UP	Down	Cab
 */
-func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
+func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 	println("# Starting Controller FSM #")
-	hardware_io.Init("localhost:15657", N_FLOORS)
+	hw.Init("localhost:15657", N_FLOORS)
 
 	/* init channels */
 	floorSensorCh := make(chan int)
 	door_open := make(chan bool, 5)
 
 	/* init goroutines */
-	go hardware_io.PollFloorSensor(floorSensorCh)
+	go hw.PollFloorSensor(floorSensorCh)
 
 	/* init variables */
 	e := Elevator{
@@ -69,7 +69,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 		orders:    [N_FLOORS][N_BUTTONS]bool{},
 		lights:    [N_FLOORS][N_BUTTONS]bool{},
 	}
-	hardware_io.SetMotorDirection(hardware_io.MD_Down)
+	hw.SetMotorDirection(hw.MD_Down)
 
 	door_close := time.NewTimer(3 * time.Second)
 	door_close.Stop()
@@ -82,7 +82,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 
 			switch e.behavior {
 			case BH_Idle, BH_DoorOpen:
-				hardware_io.SetMotorDirection(hardware_io.MD_Stop)
+				hw.SetMotorDirection(hw.MD_Stop)
 
 			case BH_Moving:
 				if e.shouldTakeOrder() {
@@ -90,7 +90,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 					break
 				}
 				if e.ordersEmpty() {
-					hardware_io.SetMotorDirection(hardware_io.MD_Stop)
+					hw.SetMotorDirection(hw.MD_Stop)
 					e.behavior = BH_Idle
 					break
 				}
@@ -98,12 +98,12 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 				case DIR_Up:
 					if !e.ordersAbove() {
 						e.direction = DIR_Down
-						hardware_io.SetMotorDirection(hardware_io.MD_Down)
+						hw.SetMotorDirection(hw.MD_Down)
 					}
 				case DIR_Down:
 					if !e.ordersBelow() {
 						e.direction = DIR_Up
-						hardware_io.SetMotorDirection(hardware_io.MD_Up)
+						hw.SetMotorDirection(hw.MD_Up)
 					}
 				}
 			}
@@ -111,15 +111,15 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 		case <-door_open:
 			println("FSM: Door Open")
 			e.behavior = BH_DoorOpen
-			hardware_io.SetMotorDirection(hardware_io.MD_Stop)
-			hardware_io.SetDoorOpenLamp(true)
+			hw.SetMotorDirection(hw.MD_Stop)
+			hw.SetDoorOpenLamp(true)
 			door_close.Reset(3 * time.Second)
 			clearOrder(&e)
 			e.clearLights()
 
 		case <-door_close.C:
 			println("Door Closing")
-			hardware_io.SetDoorOpenLamp(false)
+			hw.SetDoorOpenLamp(false)
 
 			if e.ordersEmpty() {
 				e.behavior = BH_Idle
@@ -128,7 +128,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 
 			e.direction = e.chooseDirection()
 			e.behavior = BH_Moving
-			hardware_io.SetMotorDirection(hardware_io.MotorDirection(e.direction))
+			hw.SetMotorDirection(hw.MotorDirection(e.direction))
 
 		case in := <-localOrdersCh:
 			/* simple case used for testing new orders direct*/
@@ -142,7 +142,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 				}
 				e.direction = e.chooseDirection()
 				e.behavior = BH_Moving
-				hardware_io.SetMotorDirection(hardware_io.MotorDirection(e.direction))
+				hw.SetMotorDirection(hw.MotorDirection(e.direction))
 			case BH_Moving:
 				break
 			case BH_DoorOpen:
@@ -151,7 +151,7 @@ func StartElevatorController(localOrdersCh <-chan hardware_io.ButtonEvent) {
 				}
 			}
 			fmt.Printf("%+v\n", in)
-			hardware_io.SetButtonLamp(in.Button, in.Floor, true)
+			hw.SetButtonLamp(in.Button, in.Floor, true)
 		}
 	}
 }
@@ -178,7 +178,7 @@ func clearOrder(e *Elevator) {
 }
 func (e Elevator) clearLights() {
 	for btn := 0; btn < N_BUTTONS; btn++ {
-		hardware_io.SetButtonLamp(hardware_io.ButtonType(btn), e.floor, false)
+		hw.SetButtonLamp(hw.ButtonType(btn), e.floor, false)
 	}
 }
 
