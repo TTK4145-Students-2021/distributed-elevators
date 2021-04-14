@@ -8,6 +8,7 @@ import (
 
 	"./network/bcast"
 	"./network/localip"
+	jsonpipe "./network/messaging"
 	"./network/peers"
 )
 
@@ -22,6 +23,7 @@ type HelloMsg struct {
 func main() {
 	// Our id can be anything. Here we pass it on the command line, using
 	//  `go run main.go -id=our_id`
+
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
@@ -48,6 +50,24 @@ func main() {
 	go peers.Transmitter(15647, id, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
+	//TCP listener server
+	tcpPort := 8080
+	portBusy := make(chan bool, 1)
+	handler := MessageHandler()
+	orderUpdateHandler := OrderHandler()
+	server := jsonpipe.NewServer()
+	server.Handle("orderChannel", orderUpdateHandler)
+	server.Handle("msg", handler)
+	//Check if TCP listen port is available, otherwise increment until available port is found
+	for {
+		adress := fmt.Sprintf("0.0.0.0:%d", tcpPort)
+		go server.ListenAndServe(adress, portBusy)
+		if !(<-portBusy) {
+			break
+		}
+		tcpPort++
+	}
+	fmt.Println("Port ", tcpPort)
 	// We make channels for sending and receiving our custom data types
 	helloTx := make(chan HelloMsg)
 	helloRx := make(chan HelloMsg)
@@ -78,5 +98,18 @@ func main() {
 			//case a := <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)
 		}
+	}
+}
+func MessageHandler() jsonpipe.Handler {
+	return func(response *jsonpipe.Response, request *jsonpipe.Request) {
+		fmt.Println("Data: ", request.Data)
+		response.Data = "Message received"
+	}
+}
+
+OrderHandler() jsonpipe.Handler {
+	return func(response *jsonpipe.Response, request *jsonpipe.Request) {
+		fmt.Println("Do something with this: ", request.Data)
+		response.Data = "Message received"
 	}
 }

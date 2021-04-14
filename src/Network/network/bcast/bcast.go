@@ -1,12 +1,13 @@
 package bcast
 
 import (
-	"../conn"
 	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
 	"strings"
+
+	"../conn"
 )
 
 // Encodes received values from `chans` into type-tagged JSON, then broadcasts
