@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-
-	"./Orders"
 	"./controller_fsm"
 	"./hardware_io"
+	"./orders"
+	// "./test"
+	"fmt"
 )
 
 func main() {
@@ -13,10 +13,9 @@ func main() {
 	localOrdersCh := make(chan hardware_io.ButtonEvent)
 
 	fmt.Println("### Starting Elevator ###")
-	go Controller_fsm.StartElevatorController(localOrdersCh)
-	go Orders.StartOrderModule(localOrdersCh)
-	// go elevio.PollButtons()
-
+	go controller_fsm.StartElevatorController(localOrdersCh)
+	go orders.StartOrderModule(localOrdersCh)
+	// go test.StartElevatorHardware(N_FLOORS)
 	for {
 	}
 }

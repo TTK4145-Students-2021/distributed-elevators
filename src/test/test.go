@@ -9,8 +9,8 @@ func StartElevatorHardware(numFloors int) {
 	fmt.Println("Starting Hardware_IO")
 	hardware_io.Init("localhost:15657", numFloors)
 
-	var d hardware_io.MotorDirection = hardware_io.MD_Up
-	//hardware_io.SetMotorDirection(d)
+	var d hardware_io.MotorDirection = hardware_io.MD_Stop
+	hardware_io.SetMotorDirection(d)
 
 	drv_buttons := make(chan hardware_io.ButtonEvent)
 	drv_floors := make(chan int)
