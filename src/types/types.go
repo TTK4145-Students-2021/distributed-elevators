@@ -1,3 +1,4 @@
+package types
 
 /* Variables */
 const N_FLOORS = 4
@@ -35,3 +36,9 @@ type Elevator struct {
 	Orders    [N_FLOORS][N_BUTTONS]bool
 	Lights    [N_FLOORS][N_BUTTONS]bool
 }
+
+/* Basic member functions */
+// func (d Dir) get_string() string {
+// 	a := []string{"DIR_Up", "DIR_Down"}
+// 	return a[int(d)]
+// }

@@ -5,18 +5,19 @@ import (
 	"time"
 
 	hw "../hardware_io"
+	. "../types"
 )
 
-const N_FLOORS = 4
-const N_BUTTONS = 3
+// const N_FLOORS = 4
+// const N_BUTTONS = 3
 
-type Behavior int
+// type Behavior int
 
-const (
-	BH_Idle Behavior = iota
-	BH_Moving
-	BH_DoorOpen
-)
+// const (
+// 	BH_Idle Behavior = iota
+// 	BH_Moving
+// 	BH_DoorOpen
+// )
 
 type Dir int
 
@@ -25,13 +26,13 @@ const (
 	DIR_Down
 )
 
-type ButtonType int
+// type ButtonType int
 
-const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown            = 1
-	BT_Cab                 = 2
-)
+// const (
+// 	BT_HallUp   ButtonType = 0
+// 	BT_HallDown            = 1
+// 	BT_Cab                 = 2
+// )
 
 type Elevator struct {
 	Behavior  Behavior
@@ -182,10 +183,10 @@ func (e Elevator) clearLights() {
 	}
 }
 
-func (elevator Elevator) printOrders() {
+func (e Elevator) printOrders() {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			println("floor ", floor, "button ", btn, "value ", elevator.Orders[floor][btn])
+			println("floor ", floor, "button ", btn, "value ", e.Orders[floor][btn])
 		}
 	}
 }
