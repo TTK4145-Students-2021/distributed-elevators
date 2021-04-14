@@ -5,18 +5,19 @@ import (
 	"time"
 
 	hw "../hardware_io"
+	. "../types"
 )
 
-const N_FLOORS = 4
-const N_BUTTONS = 3
+// const N_FLOORS = 4
+// const N_BUTTONS = 3
 
-type Behavior int
+// type Behavior int
 
-const (
-	BH_Idle Behavior = iota
-	BH_Moving
-	BH_DoorOpen
-)
+// const (
+// 	BH_Idle Behavior = iota
+// 	BH_Moving
+// 	BH_DoorOpen
+// )
 
 type Dir int
 
@@ -25,21 +26,21 @@ const (
 	DIR_Down
 )
 
-type ButtonType int
+// type ButtonType int
 
-const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown            = 1
-	BT_Cab                 = 2
-)
+// const (
+// 	BT_HallUp   ButtonType = 0
+// 	BT_HallDown            = 1
+// 	BT_Cab                 = 2
+// )
 
 type Elevator struct {
-	behavior  Behavior
-	direction Dir
-	floor     int
-	available bool
-	orders    [N_FLOORS][N_BUTTONS]bool
-	lights    [N_FLOORS][N_BUTTONS]bool
+	Behavior  Behavior
+	Direction Dir
+	Floor     int
+	Availeble bool
+	Orders    [N_FLOORS][N_BUTTONS]bool
+	Lights    [N_FLOORS][N_BUTTONS]bool
 }
 
 /*
@@ -62,12 +63,12 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 
 	/* init variables */
 	e := Elevator{
-		behavior:  BH_Idle,
-		direction: DIR_Down,
-		floor:     -1,
-		available: true,
-		orders:    [N_FLOORS][N_BUTTONS]bool{},
-		lights:    [N_FLOORS][N_BUTTONS]bool{},
+		Behavior:  BH_Idle,
+		Direction: DIR_Down,
+		Floor:     -1,
+		Availeble: true,
+		Orders:    [N_FLOORS][N_BUTTONS]bool{},
+		Lights:    [N_FLOORS][N_BUTTONS]bool{},
 	}
 	hw.SetMotorDirection(hw.MD_Down)
 
@@ -77,10 +78,10 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 	for {
 		select {
 
-		case e.floor = <-floorSensorCh:
-			fmt.Println("Arrived at floor", e.floor, e.direction.get_string())
+		case e.Floor = <-floorSensorCh:
+			fmt.Println("Arrived at floor", e.Floor, e.Direction.get_string())
 
-			switch e.behavior {
+			switch e.Behavior {
 			case BH_Idle, BH_DoorOpen:
 				hw.SetMotorDirection(hw.MD_Stop)
 
@@ -91,18 +92,18 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 				}
 				if e.ordersEmpty() {
 					hw.SetMotorDirection(hw.MD_Stop)
-					e.behavior = BH_Idle
+					e.Behavior = BH_Idle
 					break
 				}
-				switch e.direction {
+				switch e.Direction {
 				case DIR_Up:
 					if !e.ordersAbove() {
-						e.direction = DIR_Down
+						e.Direction = DIR_Down
 						hw.SetMotorDirection(hw.MD_Down)
 					}
 				case DIR_Down:
 					if !e.ordersBelow() {
-						e.direction = DIR_Up
+						e.Direction = DIR_Up
 						hw.SetMotorDirection(hw.MD_Up)
 					}
 				}
@@ -110,7 +111,7 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 
 		case <-door_open:
 			println("FSM: Door Open")
-			e.behavior = BH_DoorOpen
+			e.Behavior = BH_DoorOpen
 			hw.SetMotorDirection(hw.MD_Stop)
 			hw.SetDoorOpenLamp(true)
 			door_close.Reset(3 * time.Second)
@@ -122,31 +123,31 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 			hw.SetDoorOpenLamp(false)
 
 			if e.ordersEmpty() {
-				e.behavior = BH_Idle
+				e.Behavior = BH_Idle
 				break
 			}
 
-			e.direction = e.chooseDirection()
-			e.behavior = BH_Moving
-			hw.SetMotorDirection(hw.MotorDirection(e.direction))
+			e.Direction = e.chooseDirection()
+			e.Behavior = BH_Moving
+			hw.SetMotorDirection(hw.MotorDirection(e.Direction))
 
 		case in := <-localOrdersCh:
 			/* simple case used for testing new orders direct*/
-			e.orders[in.Floor][in.Button] = true
+			e.Orders[in.Floor][in.Button] = true
 
-			switch e.behavior {
+			switch e.Behavior {
 			case BH_Idle:
-				if in.Floor == e.floor {
+				if in.Floor == e.Floor {
 					door_open <- true
 					break
 				}
-				e.direction = e.chooseDirection()
-				e.behavior = BH_Moving
-				hw.SetMotorDirection(hw.MotorDirection(e.direction))
+				e.Direction = e.chooseDirection()
+				e.Behavior = BH_Moving
+				hw.SetMotorDirection(hw.MotorDirection(e.Direction))
 			case BH_Moving:
 				break
 			case BH_DoorOpen:
-				if in.Floor == e.floor {
+				if in.Floor == e.Floor {
 					door_open <- true
 				}
 			}
@@ -157,35 +158,35 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 }
 
 func (e Elevator) shouldTakeOrder() bool {
-	switch e.direction {
+	switch e.Direction {
 	case DIR_Up:
-		return e.orders[e.floor][BT_HallUp] ||
-			e.orders[e.floor][BT_Cab] ||
+		return e.Orders[e.Floor][BT_HallUp] ||
+			e.Orders[e.Floor][BT_Cab] ||
 			(!e.ordersAbove())
 	case DIR_Down:
-		return e.orders[e.floor][BT_HallDown] ||
-			e.orders[e.floor][BT_Cab] ||
-			(!e.ordersBelow() && e.orders[e.floor][BT_HallUp])
+		return e.Orders[e.Floor][BT_HallDown] ||
+			e.Orders[e.Floor][BT_Cab] ||
+			(!e.ordersBelow() && e.Orders[e.Floor][BT_HallUp])
 	}
 	return false
 }
 
 /*temp*/
 func clearOrder(e *Elevator) {
-	e.orders[e.floor][BT_HallUp] = false
-	e.orders[e.floor][BT_HallDown] = false
-	e.orders[e.floor][BT_Cab] = false
+	e.Orders[e.Floor][BT_HallUp] = false
+	e.Orders[e.Floor][BT_HallDown] = false
+	e.Orders[e.Floor][BT_Cab] = false
 }
 func (e Elevator) clearLights() {
 	for btn := 0; btn < N_BUTTONS; btn++ {
-		hw.SetButtonLamp(hw.ButtonType(btn), e.floor, false)
+		hw.SetButtonLamp(hw.ButtonType(btn), e.Floor, false)
 	}
 }
 
-func (elevator Elevator) printOrders() {
+func (e Elevator) printOrders() {
 	for floor := 0; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			println("floor ", floor, "button ", btn, "value ", elevator.orders[floor][btn])
+			println("floor ", floor, "button ", btn, "value ", e.Orders[floor][btn])
 		}
 	}
 }
@@ -197,7 +198,7 @@ func (d Dir) get_string() string {
 
 func onFloorGetNewBehavior(e Elevator) (Behavior, bool) {
 
-	if e.orders == [N_FLOORS][N_BUTTONS]bool{} {
+	if e.Orders == [N_FLOORS][N_BUTTONS]bool{} {
 		return BH_Idle, false
 	} else if e.shouldTakeOrder() {
 		return BH_DoorOpen, true
@@ -207,7 +208,7 @@ func onFloorGetNewBehavior(e Elevator) (Behavior, bool) {
 }
 
 func (e Elevator) chooseDirection() Dir {
-	switch e.direction {
+	switch e.Direction {
 	case DIR_Up:
 		if e.ordersAbove() {
 			return DIR_Up
@@ -225,17 +226,17 @@ func (e Elevator) chooseDirection() Dir {
 			println("Fatal error, direction down. Orders above= ", e.ordersAbove())
 		}
 	}
-	return e.direction //MUST REMOVE THIS
+	return e.Direction //MUST REMOVE THIS
 }
 
 func (e Elevator) ordersEmpty() bool {
-	return e.orders == [N_FLOORS][N_BUTTONS]bool{}
+	return e.Orders == [N_FLOORS][N_BUTTONS]bool{}
 }
 
 func (e Elevator) ordersAbove() bool {
-	for floor := e.floor + 1; floor < N_FLOORS; floor++ {
+	for floor := e.Floor + 1; floor < N_FLOORS; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.orders[floor][btn] {
+			if e.Orders[floor][btn] {
 				return true
 			}
 		}
@@ -244,9 +245,9 @@ func (e Elevator) ordersAbove() bool {
 }
 
 func (e Elevator) ordersBelow() bool {
-	for floor := 0; floor < e.floor; floor++ {
+	for floor := 0; floor < e.Floor; floor++ {
 		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.orders[floor][btn] {
+			if e.Orders[floor][btn] {
 				return true
 			}
 		}
