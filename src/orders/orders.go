@@ -2,11 +2,12 @@ package orders
 
 import (
 	"../hardware_io"
+	. "../types"
 )
 
-func StartOrderModule(localOrdersCh chan<- hardware_io.ButtonEvent) {
+func StartOrderModule(localOrdersCh chan<- ButtonEvent, newOrder chan<- OrderEvent) {
 
-	buttonCh := make(chan hardware_io.ButtonEvent)
+	buttonCh := make(chan ButtonEvent)
 	go hardware_io.PollButtons(buttonCh)
 
 	for {
@@ -15,6 +16,10 @@ func StartOrderModule(localOrdersCh chan<- hardware_io.ButtonEvent) {
 		case button := <-buttonCh:
 			/* simple case used for testing new orders direct with FSM*/
 			localOrdersCh <- button
+
+			new_order := OrderEvent{ID, button}
+			newOrder <- new_order
+
 		}
 	}
 }

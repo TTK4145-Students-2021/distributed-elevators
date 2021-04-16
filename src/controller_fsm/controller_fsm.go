@@ -21,7 +21,7 @@ Orders // Lights
 3	|	UP	Down	Cab
 4	|	UP	Down	Cab
 */
-func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
+func StartElevatorController(localOrdersCh <-chan ButtonEvent, updateElevState chan<- State) {
 	println("# Starting Controller FSM #")
 	hw.Init("localhost:15657", N_FLOORS)
 
@@ -34,7 +34,7 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 
 	/* init variables */
 	e := Elevator{
-		State:  State{BH_Idle, -1, DIR_Down, true},
+		State:  State{ID, BH_Idle, -1, DIR_Down, true},
 		Orders: [N_FLOORS][N_BUTTONS]bool{},
 		Lights: [N_FLOORS][N_BUTTONS]bool{},
 	}
@@ -76,6 +76,8 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 					}
 				}
 			}
+
+			updateElevState <- e.State
 
 		case <-door_open:
 			println("FSM: Door Open")
@@ -123,6 +125,7 @@ func StartElevatorController(localOrdersCh <-chan hw.ButtonEvent) {
 			hw.SetButtonLamp(in.Button, in.Floor, true)
 
 			// case lights
+
 		}
 	}
 }
@@ -149,7 +152,7 @@ func clearOrder(e *Elevator) {
 }
 func (e Elevator) clearLights() {
 	for btn := 0; btn < N_BUTTONS; btn++ {
-		hw.SetButtonLamp(hw.ButtonType(btn), e.State.Floor, false)
+		hw.SetButtonLamp(ButtonType(btn), e.State.Floor, false)
 	}
 }
 

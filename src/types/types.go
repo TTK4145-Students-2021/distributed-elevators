@@ -8,6 +8,7 @@ import (
 /* Variables */
 const N_FLOORS = 4
 const N_BUTTONS = 3
+const ID = "heis_01"
 
 /* #### Types #### */
 type Behavior int
@@ -33,23 +34,40 @@ const (
 	BT_Cab                 = 2
 )
 
+type ButtonEvent struct {
+	Floor  int
+	Button ButtonType
+}
+
+type OrderEvent struct {
+	ID    string
+	Order ButtonEvent
+}
+
 type OrderMatrix [N_FLOORS][N_BUTTONS]bool
 
 type GlobalOrderMap map[string]OrderMatrix
 
 /* #### Structs ####*/
 
-type State struct {
+type State struct { //ElevState??
+	ID        string
 	Behavior  Behavior `json:"behavior"`
 	Floor     int      `json:"floor"`
 	Direction Dir      `json:"direction"`
-	Availeble bool
+	Available bool
 }
 
 /* #### Basic member functions #### */
+
 func (d Dir) String() string {
-	a := []string{"DIR_Up", "DIR_Down"}
+	a := []string{"up", "down"}
 	return a[int(d)]
+}
+
+func (b Behavior) String() string {
+	a := []string{"idle", "moving", "doorOpen"}
+	return a[int(b)]
 }
 
 func (mat OrderMatrix) String() string {

@@ -30,14 +30,15 @@ type CombinedElevators struct {
 	States       map[string]SingleElevator     `json:"states"`
 }
 
-func main() {
+func RunMaster(newOrder <-chan OrderEvent, updateElevState <-chan State) {
+	println("## Running Master ##")
 	/* 	channels */
 
 	/* 	variables */
-	// combined := CombinedElevators{
-	// 	GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
-	// 	States:       make(map[string]SingleElevator),
-	// }
+	e := CombinedElevators{
+		GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
+		States:       make(map[string]SingleElevator),
+	}
 
 	for {
 		select {
@@ -51,8 +52,7 @@ func main() {
 			<- order_new
 				stuct:
 					ID			string
-					floor		int
-					type		[N_BUTTONS]bool
+
 
 			<- order_done
 				stuct:
@@ -69,6 +69,42 @@ func main() {
 			<- redistribute
 				*calculate assignment and push to peers
 		*/
+
+		case state := <-updateElevState: //new_state
+			/* Shitty kode, bør skrives om for lesbarhet */
+			println("M: Got State: ID: ", state.ID)
+			_, exists := e.States[state.ID]
+			if !exists {
+				e.States[state.ID] = SingleElevator{
+					state.Behavior.String(),
+					state.Floor,
+					state.Direction.String(),
+					[N_FLOORS]bool{},
+				}
+			} else {
+				e.States[state.ID] = SingleElevator{
+					state.Behavior.String(),
+					state.Floor,
+					state.Direction.String(),
+					e.States[state.ID].CabRequests,
+				}
+			}
+
+		case a := <-newOrder:
+			println("M: master got order")
+			client_elev, ok := e.States[a.ID]
+			if !ok {
+				println("M: No client with ID: ", a.ID)
+				return
+			}
+
+			switch a.Order.Button {
+			case BT_Cab:
+				arr := e.States[a.ID].CabRequests
+				arr[a.Order.Floor] = true
+				e.States[a.ID] = 
+			}
+			println("M: ", e.States[a.ID].CabRequests[a.Order.Floor])
 
 		}
 	}

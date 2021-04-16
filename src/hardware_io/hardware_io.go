@@ -4,6 +4,7 @@ import "time"
 import "sync"
 import "net"
 import "fmt"
+import . "../types"
 
 const _pollRate = 20 * time.Millisecond
 
@@ -20,18 +21,18 @@ const (
 	MD_Stop                = 2
 )
 
-type ButtonType int
+// type ButtonType int
 
-const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown            = 1
-	BT_Cab                 = 2
-)
+// const (
+// 	BT_HallUp   ButtonType = 0
+// 	BT_HallDown            = 1
+// 	BT_Cab                 = 2
+// )
 
-type ButtonEvent struct {
-	Floor  int
-	Button ButtonType
-}
+// type ButtonEvent struct {
+// 	Floor  int
+// 	Button ButtonType
+// }
 
 func Init(addr string, numFloors int) {
 	if _initialized {

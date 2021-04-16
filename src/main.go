@@ -2,20 +2,24 @@ package main
 
 import (
 	"./controller_fsm"
-	"./hardware_io"
+	// "./hardware_io"
+	"./master"
 	"./orders"
+	. "./types"
 	// "./test"
 	"fmt"
 )
 
 func main() {
-	const N_FLOORS = 4
-	localOrdersCh := make(chan hardware_io.ButtonEvent)
+	localOrdersCh := make(chan ButtonEvent)
+	newOrder := make(chan OrderEvent)
+	// doneOrder := make(chan OrderEvent)
+	updateElevState := make(chan State)
 
 	fmt.Println("### Starting Elevator ###")
-	go controller_fsm.StartElevatorController(localOrdersCh)
-	go orders.StartOrderModule(localOrdersCh)
-	// go test.StartElevatorHardware(N_FLOORS)
+	go controller_fsm.StartElevatorController(localOrdersCh, updateElevState)
+	go orders.StartOrderModule(localOrdersCh, newOrder)
+	go master.RunMaster(newOrder, updateElevState)
 	for {
 	}
 }
