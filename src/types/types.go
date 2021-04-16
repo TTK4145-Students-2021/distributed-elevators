@@ -28,17 +28,17 @@ const (
 	BT_Cab                 = 2
 )
 
-type Elevator struct {
-	Behavior  Behavior
-	Direction Dir
-	Floor     int
+/* Structs */
+
+type State struct {
+	Behavior  Behavior `json:"behavior"`
+	Floor     int      `json:"floor"`
+	Direction Dir      `json:"direction"`
 	Availeble bool
-	Orders    [N_FLOORS][N_BUTTONS]bool
-	Lights    [N_FLOORS][N_BUTTONS]bool
 }
 
 /* Basic member functions */
-// func (d Dir) get_string() string {
-// 	a := []string{"DIR_Up", "DIR_Down"}
-// 	return a[int(d)]
-// }
+func (d Dir) String() string {
+	a := []string{"DIR_Up", "DIR_Down"}
+	return a[int(d)]
+}
