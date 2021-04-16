@@ -10,15 +10,15 @@ import (
 )
 
 type TestMSG struct {
-	number  int
-	message string
+	Number  int    `json:"number"`
+	Message string `json:"message"`
 }
 type RXChannels struct {
 	/*StateCh chan //elev.state
 	OrderUpdateCH chan //OrderUpdateCH
 	AllOrdersCH chan //orders */
-	TestCh1 chan TestMSG
-	TestCh2 chan TestMSG
+	TestCh1 chan TestMSG `addr:"testch1"`
+	TestCh2 chan TestMSG `addr:"testch2"`
 }
 type Server struct {
 	rxChannels RXChannels
@@ -69,13 +69,14 @@ func (s Server) ListenAndServe(port string, busy chan<- bool) {
 		select {
 		case conn := <-newConnections:
 			addr := conn.RemoteAddr().String()
-			log.Printf("Accepted new client, %v", addr)
+			fmt.Printf("Accepted new client, %v", addr)
 			allClients[conn] = addr
 			go read(conn, messages, deadConnections)
 		case conn := <-deadConnections:
-			log.Printf("Client %v disconnected", allClients[conn])
+			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
+			fmt.Printf("Got message\n")
 			go s.HandleMessage(message)
 		}
 	}
@@ -107,26 +108,39 @@ func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
 func (server Server) HandleMessage(msg Message) {
 
 	request := Request{}
-
+	fmt.Println("Message: ", msg.Data)
 	if err := json.Unmarshal(msg.Data, &request); err != nil {
 		log.Println("Error decoding JSON:" + err.Error())
 	}
-	w := reflect.ValueOf(server.rxChannels)
+	fmt.Println("Request mAdd: ", request.ChannelAdress)
+	fmt.Println("Request mAdd: ", request.RequestId)
+	fmt.Println("Request Data: ", request.Data)
+	w := reflect.TypeOf(server.rxChannels)
+	x := reflect.ValueOf(server.rxChannels)
 
 	for i := 0; i < w.NumField(); i++ {
-		ch := w.Field(i).Interface()
+		ch := w.Field(i)
+		chV := x.Field(i).Interface()
 		//for _, ch := range server.rxChannels {
+		fmt.Printf("Addr: %s\n", ch.Tag.Get("addr"))
+		//X := reflect.TypeOf(ch).Elem()
+		T := reflect.TypeOf(chV).Elem()
+		//typeName := T.String()
+		typeName := ch.Tag.Get("addr")
 
-		T := reflect.TypeOf(ch).Elem()
-		typeName := T.String()
 		if request.ChannelAdress == typeName {
-			//if strings.HasPrefix(string(request.Data)+"{", typeName) {
+			fmt.Printf("Typename: %s\n", typeName)
 			v := reflect.New(T)
-			json.Unmarshal(request.Data, v.Interface())
-
+			err := json.Unmarshal(request.Data, v.Interface())
+			if err != nil {
+				fmt.Println("Error decoding JSON:" + err.Error())
+			}
+			//fmt.Printf("request Data: %s\n", request.Data)
+			//fmt.Printf("Sending on channel: %s\n", T)
+			//fmt.Printf("Chan: %s\n", reflect.ValueOf(chV))
 			reflect.Select([]reflect.SelectCase{{
 				Dir:  reflect.SelectSend,
-				Chan: reflect.ValueOf(ch),
+				Chan: reflect.ValueOf(chV),
 				Send: reflect.Indirect(v),
 			}})
 		}

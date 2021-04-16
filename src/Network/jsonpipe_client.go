@@ -8,13 +8,17 @@ import (
 )
 
 type Request struct {
-	Id     string `json:"reqId"`
+	/*Id     string `json:"reqId"`
 	Action string `json:"action"`
-	Data   Data   `json:"data"`
+	Data   Data   `json:"data"`*/
+	ChannelAdress string `json:"mAdd"`
+	ElevatorId    string `json:"reqId"`
+	Data          []byte `json:"data"`
 }
 
-type Data struct {
-	SomeData string `json:"someData"`
+type TestMSG struct {
+	Number  int    `json:"number"`
+	Message string `json:"message"`
 }
 
 func main() {
@@ -32,12 +36,23 @@ func sendSomeData() {
 
 	fmt.Println("Sending some data")
 
-	dat := Data{SomeData: "Data boiiii"}
-
+	data := &TestMSG{42, "Data boiiii"}
+	//fmt.Println("Struct: ", data)
+	dat, err := json.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Data: %s\n", string(dat))
+	//data2 := TestMSG{}
+	var data2 TestMSG
+	if err := json.Unmarshal(dat, &data2); err != nil {
+		fmt.Println("Error decoding JSON:" + err.Error())
+	}
+	fmt.Println("Unmarshal: ", data2)
 	req := Request{
-		Id:     "101",
-		Action: "msg",
-		Data:   dat,
+		ElevatorId:    "101",
+		ChannelAdress: "testch1",
+		Data:          dat,
 	}
 
 	bytes, err := json.Marshal(req)
@@ -50,14 +65,12 @@ func sendSomeData() {
 
 		println("write to server = ", string(bytes))
 
-		reply := make([]byte, 1024)
-
-		_, err = conn.Read(reply)
+		/*_, err = conn.Read(reply)
 		if err != nil {
 			println("Read from server failed:", err.Error())
 		}
 
-		println("reply from server=", string(reply))
+		println("reply from server=", string(reply))*/
 		time.Sleep(time.Second)
 	}
 

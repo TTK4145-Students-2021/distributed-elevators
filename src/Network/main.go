@@ -53,11 +53,10 @@ func main() {
 	//TCP listener server
 	tcpPort := 8080
 	portBusy := make(chan bool, 1)
-	handler := MessageHandler()
-	orderUpdateHandler := OrderHandler()
-	server := jsonpipe.NewServer()
-	server.Handle("orderChannel", orderUpdateHandler)
-	server.Handle("msg", handler)
+	tCh1 := make(chan jsonpipe.TestMSG, 1)
+	rxch := jsonpipe.RXChannels{TestCh1: tCh1}
+	server := jsonpipe.NewServer(rxch)
+
 	//Check if TCP listen port is available, otherwise increment until available port is found
 	for {
 		adress := fmt.Sprintf("0.0.0.0:%d", tcpPort)
@@ -95,21 +94,24 @@ func main() {
 				fmt.Printf("  Peer: id:%s, ip: %s, isMaster:%t   \n\n", v.Id, v.Ip, v.IsMaster)
 
 			}
+		case a := <-tCh1:
+			fmt.Println("Got TCP message: ", a)
 			//case a := <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)
 		}
 	}
 }
-func MessageHandler() jsonpipe.Handler {
+
+/*func MessageHandler() jsonpipe.Handler {
 	return func(response *jsonpipe.Response, request *jsonpipe.Request) {
 		fmt.Println("Data: ", request.Data)
 		response.Data = "Message received"
 	}
-}
+}*/
 
-OrderHandler() jsonpipe.Handler {
+/*OrderHandler() jsonpipe.Handler {
 	return func(response *jsonpipe.Response, request *jsonpipe.Request) {
 		fmt.Println("Do something with this: ", request.Data)
 		response.Data = "Message received"
 	}
-}
+}*/
