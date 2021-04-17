@@ -52,8 +52,10 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 	deadConnections := make(chan net.Conn)  //channel for dead connections
 	messages := make(chan Message)          //channel for messages
 	var server net.Listener
-	var err error
+
+	//Iterate until free TCP port is found, send port back through channel
 	for {
+		var err error
 		server, err = net.Listen("tcp", string(port))
 		if err != nil {
 			fmt.Println("Listen err ", err)
