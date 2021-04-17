@@ -76,7 +76,7 @@ func (s Server) ListenAndServe(port string, busy chan<- bool) {
 			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
-			fmt.Printf("Got message\n")
+			//fmt.Printf("Got message\n")
 			go s.HandleMessage(message)
 		}
 	}
@@ -108,28 +108,21 @@ func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
 func (server Server) HandleMessage(msg Message) {
 
 	request := Request{}
-	fmt.Println("Message: ", msg.Data)
 	if err := json.Unmarshal(msg.Data, &request); err != nil {
 		log.Println("Error decoding JSON:" + err.Error())
 	}
-	fmt.Println("Request mAdd: ", request.ChannelAdress)
-	fmt.Println("Request mAdd: ", request.RequestId)
-	fmt.Println("Request Data: ", request.Data)
 	w := reflect.TypeOf(server.rxChannels)
 	x := reflect.ValueOf(server.rxChannels)
 
 	for i := 0; i < w.NumField(); i++ {
 		ch := w.Field(i)
-		chV := x.Field(i).Interface()
-		//for _, ch := range server.rxChannels {
-		fmt.Printf("Addr: %s\n", ch.Tag.Get("addr"))
-		//X := reflect.TypeOf(ch).Elem()
-		T := reflect.TypeOf(chV).Elem()
-		//typeName := T.String()
+		chValue := x.Field(i).Interface()
+		//fmt.Printf("Addr: %s\n", ch.Tag.Get("addr"))
+		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
 
 		if request.ChannelAdress == typeName {
-			fmt.Printf("Typename: %s\n", typeName)
+			//fmt.Printf("Channel: %s\n", typeName)
 			v := reflect.New(T)
 			err := json.Unmarshal(request.Data, v.Interface())
 			if err != nil {
@@ -140,27 +133,9 @@ func (server Server) HandleMessage(msg Message) {
 			//fmt.Printf("Chan: %s\n", reflect.ValueOf(chV))
 			reflect.Select([]reflect.SelectCase{{
 				Dir:  reflect.SelectSend,
-				Chan: reflect.ValueOf(chV),
+				Chan: reflect.ValueOf(chValue),
 				Send: reflect.Indirect(v),
 			}})
 		}
 	}
-	/*switch request.ModuleAdress{
-		case "TestCh1"
-			orderUpdate OrderUpdate{}
-			err := mapstructure.Decode(input, &restaurant)
-			server.rxChannels.TestCh1<-request.Data
-		case "TestCh2"
-			server.rxChannels.TestCh2<-request.Data
-	}*/
-
-	/*bytes, err := json.Marshal(response)
-	if err != nil {
-		log.Printf("Error marshaling JSON:%s\n", err)
-		return
-	}
-
-	msg.Connection.Write(bytes)*/
-
-	return
 }
