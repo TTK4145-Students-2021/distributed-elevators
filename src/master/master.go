@@ -13,12 +13,12 @@ import (
 )
 
 /*Types*/
-type single_elevator struct {
-	state       State          `json:"state"`
-	cabRequests [N_FLOORS]bool `json:"cabRequests"`
+type SingleElevator struct {
+	State     State          `json:"state"`
+	CabOrders [N_FLOORS]bool `json:"cabRequests"`
 }
 
-type SingleElevator struct {
+type JsonElevator struct {
 	Behavior    string         `json:"behavior"`
 	Floor       int            `json:"floor"`
 	Direction   string         `json:"direction"`
@@ -33,12 +33,15 @@ type CombinedElevators struct {
 func RunMaster(newOrder <-chan OrderEvent, updateElevState <-chan State) {
 	println("## Running Master ##")
 	/* 	channels */
-
+	reDistribute := make(chan bool,5)
 	/* 	variables */
-	e := CombinedElevators{
-		GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
-		States:       make(map[string]SingleElevator),
-	}
+	// e := CombinedElevators{
+	// 	GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
+	// 	States:       make(map[string]SingleElevator),
+	// }
+
+	gl_orders := [N_FLOORS][N_BUTTONS - 1]bool{}
+	gl_states := map[string]SingleElevator{}
 
 	for {
 		select {
@@ -70,43 +73,62 @@ func RunMaster(newOrder <-chan OrderEvent, updateElevState <-chan State) {
 				*calculate assignment and push to peers
 		*/
 
-		case state := <-updateElevState: //new_state
-			/* Shitty kode, bør skrives om for lesbarhet */
-			println("M: Got State: ID: ", state.ID)
-			_, exists := e.States[state.ID]
-			if !exists {
-				e.States[state.ID] = SingleElevator{
-					state.Behavior.String(),
-					state.Floor,
-					state.Direction.String(),
-					[N_FLOORS]bool{},
-				}
-			} else {
-				e.States[state.ID] = SingleElevator{
-					state.Behavior.String(),
-					state.Floor,
-					state.Direction.String(),
-					e.States[state.ID].CabRequests,
-				}
+		// case state := <-updateElevState: //new_state
+		// 	/* Shitty kode, bør skrives om for lesbarhet */
+		// 	println("M: Got State: ID: ", state.ID)
+		// 	_, exists := e.States[state.ID]
+		// 	if !exists {
+		// 		e.States[state.ID] = SingleElevator{
+		// 			state.Behavior.String(),
+		// 			state.Floor,
+		// 			state.Direction.String(),
+		// 			[N_FLOORS]bool{},
+		// 		}
+		// 	} else {
+		// 		e.States[state.ID] = SingleElevator{
+		// 			state.Behavior.String(),
+		// 			state.Floor,
+		// 			state.Direction.String(),
+		// 			e.States[state.ID].CabRequests,
+		// 		}
+		// 	}
+
+		case new_st := <-updateElevState:
+			println("M: Got State: ID: ", new_st.ID)
+			_, exist := gl_states[new_st.ID]
+
+			switch exist {
+			case false:
+				gl_states[new_st.ID] = SingleElevator{new_st, [N_FLOORS]bool{}}
+			case true:
+				cab := gl_states[new_st.ID].CabOrders
+				gl_states[new_st.ID] = SingleElevator{new_st, cab}
 			}
 
-		case a := <-newOrder:
+		case new_ord := <-newOrder:
 			println("M: master got order")
-			client_elev, ok := e.States[a.ID]
-			if !ok {
-				println("M: No client with ID: ", a.ID)
-				return
+			id := new_ord.ID
+			if _, exist := gl_states[id]; !exist {
+				println("M: No client with ID: ", new_ord.ID)
+				break
 			}
 
-			switch a.Order.Button {
+			switch new_ord.Order.Button {
+			case BT_HallUp, BT_HallDown:
+				gl_orders[new_ord.Order.Floor][new_ord.Order.Button] = true
 			case BT_Cab:
-				arr := e.States[a.ID].CabRequests
-				arr[a.Order.Floor] = true
-				e.States[a.ID] = 
+				arr := gl_states[id].CabOrders
+				arr[new_ord.Order.Floor] = true
+				state := gl_states[id].state
+				gl_states[id] = SingleElevator{state, arr}
 			}
-			println("M: ", e.States[a.ID].CabRequests[a.Order.Floor])
-
-		}
+			//TODO calculate dist
+		
+		case <- reDistribute:
+			global_orders = struct {
+				gl_orders 
+			}
+			combine := CombinedElevators{gl_orders,gl_states}
 	}
 }
 
