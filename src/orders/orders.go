@@ -5,21 +5,34 @@ import (
 	. "../types"
 )
 
-func StartOrderModule(localOrdersCh chan<- ButtonEvent, newOrder chan<- OrderEvent) {
+func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap) {
+	globalOrderMap := GlobalOrderMap{}
 
-	buttonCh := make(chan ButtonEvent)
-	go hardware_io.PollButtons(buttonCh)
+	keyPress := make(chan ButtonEvent)
+	go hardware_io.PollButtons(keyPress)
 
 	for {
 		select {
 
-		case button := <-buttonCh:
+		case button := <-keyPress:
 			/* simple case used for testing new orders direct with FSM*/
-			localOrdersCh <- button
 
-			new_order := OrderEvent{ID, button}
-			newOrder <- new_order
+			newOrder := OrderEvent{ID, button}
+			registerOrder <- newOrder
 
+		case globalOrderMap = <-globalUpdatedOrders:
+			localOrderMat := globalOrderMap[ID]
+			localUpdatedOrders <- localOrderMat
+
+			var localLightsMat OrderMatrix = localOrderMat
+			for _, orderMat := range globalOrderMap {
+				for i := 0; i < N_FLOORS; i++ {
+					for j := 0; j < N_BUTTONS-1; j++ {
+						localLightsMat[i][j] = localOrderMat[i][j] || orderMat[i][j]
+					}
+				}
+			}
+			localUpdatedLights <- localLightsMat
 		}
 	}
 }

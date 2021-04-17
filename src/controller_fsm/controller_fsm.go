@@ -10,8 +10,8 @@ import (
 
 type Elevator struct {
 	State  State
-	Orders [N_FLOORS][N_BUTTONS]bool
-	Lights [N_FLOORS][N_BUTTONS]bool
+	Orders OrderMatrix
+	Lights OrderMatrix
 }
 
 /*
@@ -21,7 +21,7 @@ Orders // Lights
 3	|	UP	Down	Cab
 4	|	UP	Down	Cab
 */
-func StartElevatorController(localOrdersCh <-chan ButtonEvent, updateElevState chan<- State) {
+func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- State) {
 	println("# Starting Controller FSM #")
 	hw.Init("localhost:15657", N_FLOORS)
 
@@ -101,31 +101,35 @@ func StartElevatorController(localOrdersCh <-chan ButtonEvent, updateElevState c
 			e.State.Behavior = BH_Moving
 			hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 
-		case in := <-localOrdersCh:
+		case orderMat := <-localUpdatedOrders:
 			/* simple case used for testing new orders direct*/
-			e.Orders[in.Floor][in.Button] = true
+			e.Orders = orderMat
+			// fmt.Println(orderMat)
 
 			switch e.State.Behavior {
-			case BH_Idle:
-				if in.Floor == e.State.Floor {
-					door_open <- true
-					break
+			case BH_Moving:
+				break
+			case BH_Idle, BH_DoorOpen:
+				for _, order := range orderMat[e.State.Floor] {
+					if order {
+						door_open <- true
+						break
+					}
 				}
 				e.State.Direction = e.chooseDirection()
 				e.State.Behavior = BH_Moving
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
-			case BH_Moving:
-				break
-			case BH_DoorOpen:
-				if in.Floor == e.State.Floor {
-					door_open <- true
-				}
 			}
-			// fmt.Printf("%+v\n", in)
-			hw.SetButtonLamp(in.Button, in.Floor, true)
+			// hw.SetButtonLamp(in.Button, in.Floor, true)
 
 			// case lights
-
+		case lightMat := <-localUpdatedLights:
+			for floor, arr := range lightMat {
+				for btn, value := range arr {
+					hw.SetButtonLamp(ButtonType(btn), floor, value)
+				}
+			}
+			e.Lights = lightMat
 		}
 	}
 }

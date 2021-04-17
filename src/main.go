@@ -11,15 +11,17 @@ import (
 )
 
 func main() {
-	localOrdersCh := make(chan ButtonEvent)
-	newOrder := make(chan OrderEvent)
+	localUpdatedOrders := make(chan OrderMatrix)
+	localUpdatedLights := make(chan OrderMatrix)
+	registerOrder := make(chan OrderEvent)
 	// doneOrder := make(chan OrderEvent)
 	updateElevState := make(chan State)
+	globalUpdatedOrders := make(chan GlobalOrderMap)
 
 	fmt.Println("### Starting Elevator ###")
-	go controller_fsm.StartElevatorController(localOrdersCh, updateElevState)
-	go orders.StartOrderModule(localOrdersCh, newOrder)
-	go master.RunMaster(newOrder, updateElevState)
+	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, updateElevState)
+	go orders.StartOrderModule(localUpdatedOrders, localUpdatedLights, registerOrder, globalUpdatedOrders)
+	go master.RunMaster(registerOrder, updateElevState, globalUpdatedOrders)
 	for {
 	}
 }
