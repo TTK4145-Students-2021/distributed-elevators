@@ -1,4 +1,4 @@
-package jsonpipe
+package TCPmsg
 
 import (
 	"bufio"
@@ -45,22 +45,25 @@ func NewServer(rxChs RXChannels) *Server {
 	return &server
 }
 
-func (s Server) ListenAndServe(port string, busy chan<- bool) {
+func (s Server) ListenAndServe(port int, portCh chan<- int) {
 
 	allClients := make(map[net.Conn]string) //map of all clients keyed on their connection
 	newConnections := make(chan net.Conn)   //channel for incoming connections
 	deadConnections := make(chan net.Conn)  //channel for dead connections
 	messages := make(chan Message)          //channel for messages
-
-	server, err := net.Listen("tcp", port)
-	if err != nil {
-		fmt.Println("Listen err ", err)
-		busy <- true
-		return
-	} else {
-		busy <- false
+	var server net.Listener
+	var err error
+	for {
+		server, err = net.Listen("tcp", string(port))
+		if err != nil {
+			fmt.Println("Listen err ", err)
+			port++
+			return
+		} else {
+			portCh <- port
+			break
+		}
 	}
-
 	log.Printf("JSON Pipe Server listening on %s\n", port)
 
 	go acceptConnections(server, newConnections)

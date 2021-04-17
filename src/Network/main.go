@@ -8,7 +8,7 @@ import (
 
 	"./network/bcast"
 	"./network/localip"
-	jsonpipe "./network/messaging"
+	TCPmsg "./network/messaging"
 	"./network/peers"
 )
 
@@ -52,20 +52,16 @@ func main() {
 
 	//TCP listener server
 	tcpPort := 8080
-	portBusy := make(chan bool, 1)
+	portCh := make(chan int, 1)
 	tCh1 := make(chan jsonpipe.TestMSG, 1)
-	rxch := jsonpipe.RXChannels{TestCh1: tCh1}
-	server := jsonpipe.NewServer(rxch)
+	rxch := TCPmsg.RXChannels{TestCh1: tCh1}
+	server := TCPmsg.NewServer(rxch)
 
 	//Check if TCP listen port is available, otherwise increment until available port is found
-	for {
-		adress := fmt.Sprintf("0.0.0.0:%d", tcpPort)
-		go server.ListenAndServe(adress, portBusy)
-		if !(<-portBusy) {
-			break
-		}
-		tcpPort++
-	}
+
+	address := "0.0.0.0:"
+	go server.ListenAndServe(address, tcpPort, portCh)
+	tcpPort <- portCh
 	fmt.Println("Port ", tcpPort)
 	// We make channels for sending and receiving our custom data types
 	helloTx := make(chan HelloMsg)
