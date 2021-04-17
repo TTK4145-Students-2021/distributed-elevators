@@ -14,6 +14,7 @@ import (
 type Peer struct {
 	Id       string
 	Ip       string
+	TcpPort  int 
 	IsMaster bool
 	lastSeen time.Time
 }
@@ -26,10 +27,10 @@ type PeerUpdate struct {
 const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
-func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable <-chan bool) {
+func Transmitter(udpPort int, id string, tcpPort int, isMasterUpdate <-chan bool, transmitEnable <-chan bool) {
 
-	conn := conn.DialBroadcastUDP(port)
-	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
+	conn := conn.DialBroadcastUDP(udpPort)
+	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", udpPort))
 
 	localIP, err := localip.LocalIP()
 	if err != nil {
@@ -39,7 +40,7 @@ func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable
 
 	isMaster := true
 
-	msgPeer := Peer{id, localIP, isMaster, time.Now()}
+	msgPeer := Peer{id, localIP, tcpPort, isMaster, time.Now()}
 	jsonMsg, _ := json.Marshal(msgPeer)
 
 	enable := true
@@ -62,14 +63,14 @@ func Transmitter(port int, id string, isMasterUpdate <-chan bool, transmitEnable
 	}
 }
 
-func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
+func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 
 	var buf [1024]byte
 	var p Peer
 	var pUpdate PeerUpdate
 	lastSeen := make(map[string]Peer)
 
-	conn := conn.DialBroadcastUDP(port)
+	conn := conn.DialBroadcastUDP(udpPort)
 
 	for {
 		updated := false
