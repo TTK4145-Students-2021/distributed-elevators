@@ -21,7 +21,7 @@ Orders // Lights
 3	|	UP	Down	Cab
 4	|	UP	Down	Cab
 */
-func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- State) {
+func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- State, completedOrder chan<- int) {
 	println("# Starting Controller FSM #")
 	hw.Init("localhost:15657", N_FLOORS)
 
@@ -35,8 +35,8 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	/* init variables */
 	e := Elevator{
 		State:  State{ID, BH_Idle, -1, DIR_Down, true},
-		Orders: [N_FLOORS][N_BUTTONS]bool{},
-		Lights: [N_FLOORS][N_BUTTONS]bool{},
+		Orders: OrderMatrix{},
+		Lights: OrderMatrix{},
 	}
 	hw.SetMotorDirection(hw.MD_Down)
 
@@ -85,8 +85,8 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			hw.SetMotorDirection(hw.MD_Stop)
 			hw.SetDoorOpenLamp(true)
 			door_close.Reset(3 * time.Second)
-			clearOrder(&e)
-			e.clearLights()
+
+			completedOrder <- e.State.Floor
 
 		case <-door_close.C:
 			println("FSM: Door Closing")
@@ -104,21 +104,30 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 		case orderMat := <-localUpdatedOrders:
 			/* simple case used for testing new orders direct*/
 			e.Orders = orderMat
+			fmt.Println("FSM: got order")
+			fmt.Println(orderMat)
+			if e.ordersEmpty() {
+				break
+			}
 			// fmt.Println(orderMat)
 
 			switch e.State.Behavior {
 			case BH_Moving:
 				break
-			case BH_Idle, BH_DoorOpen:
-				for _, order := range orderMat[e.State.Floor] {
-					if order {
-						door_open <- true
-						break
-					}
+
+			case BH_Idle:
+				if orderOnFloor(orderMat, e.State.Floor) {
+					door_open <- true
+					break
 				}
 				e.State.Direction = e.chooseDirection()
 				e.State.Behavior = BH_Moving
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
+			case BH_DoorOpen:
+				if orderOnFloor(orderMat, e.State.Floor) {
+					door_open <- true
+					break
+				}
 			}
 			// hw.SetButtonLamp(in.Button, in.Floor, true)
 
@@ -202,7 +211,7 @@ func (e Elevator) chooseDirection() Dir {
 }
 
 func (e Elevator) ordersEmpty() bool {
-	return e.Orders == [N_FLOORS][N_BUTTONS]bool{}
+	return e.Orders == OrderMatrix{}
 }
 
 func (e Elevator) ordersAbove() bool {
@@ -222,6 +231,15 @@ func (e Elevator) ordersBelow() bool {
 			if e.Orders[floor][btn] {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func orderOnFloor(mat OrderMatrix, floor int) bool {
+	for _, btn := range mat[floor] {
+		if btn {
+			return true
 		}
 	}
 	return false

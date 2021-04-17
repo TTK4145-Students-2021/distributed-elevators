@@ -40,8 +40,9 @@ type ButtonEvent struct {
 }
 
 type OrderEvent struct {
-	ID    string
-	Order ButtonEvent
+	ID        string
+	Completed bool
+	Order     ButtonEvent
 }
 
 type OrderMatrix [N_FLOORS][N_BUTTONS]bool

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"io/ioutil"
+	// "io/ioutil"
 	"os/exec"
 
 	// "reflect"
@@ -34,7 +34,7 @@ type CombinedElevators struct {
 func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
 	println("## Running Master ##")
 	/* 	channels */
-	reAssign := make(chan bool, 5)
+	// reAssign := make(chan bool, 20)
 	/* 	variables */
 	// e := CombinedElevators{
 	// 	GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
@@ -61,6 +61,7 @@ func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, gl
 			<- order_done
 				stuct:
 					ID			string
+					completed	bool
 					floor		int
 					type		[N_BUTTONS]bool
 
@@ -104,43 +105,37 @@ func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, gl
 
 			switch o.Order.Button {
 			case BT_HallUp, BT_HallDown:
-				gl_orders[o.Order.Floor][o.Order.Button] = true
+				gl_orders[o.Order.Floor][o.Order.Button] = !o.Completed
 			case BT_Cab: //What happenes if order given, but no elevator state present?
 				elev := gl_states[id]
-				elev.CabOrders[o.Order.Floor] = true
+				elev.CabOrders[o.Order.Floor] = !o.Completed
 				gl_states[id] = elev
 			}
 
-			reAssign <- true
-
-		case <-reAssign:
 			fmt.Println("Reassigning")
 			statesAndOrders := CombinedElevators{gl_orders, gl_states}
 			updatedOrders := calculateDistribution(statesAndOrders.Json())
 			globalUpdatedOrders <- updatedOrders
-			// fmt.Println(statesAndOrders.Json())
+			// fmt.Println(updatedOrders)
 		}
 	}
 }
 
 func (c CombinedElevators) Json() string {
-	json_byte, _ := json.MarshalIndent(&c, "", "    ")
+	// json_byte, _ := json.MarshalIndent(&c, "", "    ")
+	json_byte, _ := json.Marshal(&c)
 	return string(json_byte)
 }
 
-func calculateDistribution(_ string) GlobalOrderMap {
+func calculateDistribution(input_json string) GlobalOrderMap {
 
-	input, err := ioutil.ReadFile("../test.json")
-	check(err)
-	println(string(input))
-	out, _ := exec.Command("../hall_request_assigner", "--includeCab", "--input", "toto").Output()
+	// input, err := ioutil.ReadFile("../test.json")
+	// check(err)
+	out, _ := exec.Command("../hall_request_assigner", "--includeCab", "--input", input_json).Output()
 
-	fmt.Println("Printing output json")
-	fmt.Println(string(out))
-	assigned_orders := GlobalOrderMap{}
+	var assigned_orders GlobalOrderMap
 	json.Unmarshal(out, &assigned_orders)
 
-	// fmt.Println(assigned_orders)
 	return assigned_orders
 }
 

@@ -5,7 +5,7 @@ import (
 	. "../types"
 )
 
-func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap) {
+func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int) {
 	globalOrderMap := GlobalOrderMap{}
 
 	keyPress := make(chan ButtonEvent)
@@ -17,8 +17,29 @@ func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights 
 		case button := <-keyPress:
 			/* simple case used for testing new orders direct with FSM*/
 
-			newOrder := OrderEvent{ID, button}
+			newOrder := OrderEvent{
+				ID:        ID,
+				Completed: false,
+				Order:     button}
+
 			registerOrder <- newOrder
+
+		case floor := <-completedOrder:
+
+			for i := 0; i < N_BUTTONS; i++ {
+
+				order := ButtonEvent{
+					Floor:  floor,
+					Button: ButtonType(i),
+				}
+
+				completed := OrderEvent{
+					ID:        ID,
+					Completed: true,
+					Order:     order}
+				registerOrder <- completed
+			}
+			println("exiting completed")
 
 		case globalOrderMap = <-globalUpdatedOrders:
 			localOrderMat := globalOrderMap[ID]
