@@ -25,17 +25,17 @@ type SingleElevator struct {
 
 /* channels */
 
-func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
+func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap) {
 	for {
 		select {
 		case <-iAmMasterCh:
-			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders)
+			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh)
 			return
 		}
 	}
 }
 
-func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
+func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap) {
 	println("## Running Master ##")
 
 	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
@@ -94,13 +94,10 @@ func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateE
 			if iAmMaster {
 				//REQUEST ORDER LIST FROM PEERS
 			} else {
-				go ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders)
+				go ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh)
 				return
 			}
-		
-		
-		
-		case  
+
 		}
 	}
 }

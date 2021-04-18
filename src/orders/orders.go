@@ -5,7 +5,7 @@ import (
 	. "../types"
 )
 
-func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int) {
+func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int, orderMergeCh chan<- GlobalOrderMap) {
 	globalOrderMap := GlobalOrderMap{}
 
 	keyPress := make(chan ButtonEvent)
