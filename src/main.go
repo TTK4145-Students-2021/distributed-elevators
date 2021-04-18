@@ -19,10 +19,14 @@ func main() {
 	updateElevState := make(chan State)
 	globalUpdatedOrders := make(chan GlobalOrderMap)
 
+	iAmMasterCh := make(chan bool)
+
 	fmt.Println("### Starting Elevator ###")
 	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, updateElevState, completedOrder)
 	go orders.StartOrderModule(localUpdatedOrders, localUpdatedLights, registerOrder, globalUpdatedOrders, completedOrder)
-	go master.RunMaster(registerOrder, updateElevState, globalUpdatedOrders)
+	go master.ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders) //make a struct for channels
+	iAmMasterCh <- true
+
 	for {
 	}
 }

@@ -55,7 +55,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	doorClose := time.NewTimer(3 * time.Second)
 	doorClose.Stop()
 	hw.SetMotorDirection(hw.MD_Down)
-	motorError := time.NewTimer(5 * time.Second)
+	errorTimeout := time.NewTimer(5 * time.Second)
 
 	for {
 		select {
@@ -66,6 +66,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			switch e.State.Behavior {
 			case BH_Idle, BH_DoorOpen:
 				hw.SetMotorDirection(hw.MD_Stop)
+				errorTimeout.Stop()
 			case BH_Moving:
 				if e.shouldTakeOrder() {
 					door_open <- true
@@ -74,6 +75,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				if e.ordersEmpty() {
 					hw.SetMotorDirection(hw.MD_Stop)
 					e.State.Behavior = BH_Idle
+					errorTimeout.Stop()
 					break
 				}
 				switch e.State.Direction {
@@ -88,8 +90,9 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 						hw.SetMotorDirection(hw.MD_Up)
 					}
 				}
-				motorError.Reset(5 * time.Second)
+				errorTimeout.Reset(5 * time.Second)
 			}
+			e.State.Available = true
 			updateElevState <- e.State
 
 		case <-door_open:
@@ -97,7 +100,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			hw.SetMotorDirection(hw.MD_Stop)
 			hw.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
-			motorError.Stop()
+			errorTimeout.Stop()
 			completedOrder <- e.State.Floor
 
 		case <-doorClose.C:
@@ -106,12 +109,13 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 
 			if e.ordersEmpty() {
 				e.State.Behavior = BH_Idle
+				errorTimeout.Stop()
 				break
 			} else {
 				e.State.Direction = e.chooseDirection()
 				e.State.Behavior = BH_Moving
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
-				motorError.Reset(5 * time.Second)
+				errorTimeout.Reset(5 * time.Second)
 			}
 		case orderMat := <-localUpdatedOrders:
 			e.orders = orderMat
@@ -133,7 +137,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				e.State.Direction = e.chooseDirection()
 				e.State.Behavior = BH_Moving
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
-				motorError.Reset(5 * time.Second)
+				errorTimeout.Reset(5 * time.Second)
 			case BH_DoorOpen:
 				if orderMat.OrderOnFloor(e.State.Floor) {
 					door_open <- true
@@ -149,7 +153,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			}
 			e.lights = lightMat
 
-		case <-motorError.C:
+		case <-errorTimeout.C:
 			/* Case where elevator gets stuck */
 			fmt.Println("FMS: FATAL ERROR - Motor Timout triggered, elevator stuck?")
 			e.State.Available = false

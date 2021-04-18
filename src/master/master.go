@@ -4,20 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	// "io/ioutil"
-	"os/exec"
-
-	// "reflect"
-	// "reflect"
 	. "../types"
+	"os/exec"
 	// "github.com/davecgh/go-spew/spew"
 )
 
 /*Types*/
-// type SingleElevator struct {
-// 	State     State          `json:"state"`
-// 	CabOrders [N_FLOORS]bool `json:"cabRequests"`
-// }
-
 type CombinedElevators struct {
 	GlobalOrders [N_FLOORS][N_BUTTONS - 1]bool `json:"hallRequests"`
 	States       map[string]SingleElevator     `json:"states"`
@@ -31,29 +23,34 @@ type SingleElevator struct {
 	CabOrders [N_FLOORS]bool `json:"cabRequests"`
 }
 
-func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
+/* channels */
+
+func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
+	for {
+		select {
+		case <-iAmMasterCh:
+			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders)
+			return
+		}
+	}
+}
+
+func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
 	println("## Running Master ##")
 
 	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
 	allElevatorStates := map[string]SingleElevator{}
 
+	/* REQUEST ALL ORDER LIST FROM PEERS HERE*/
+
 	for {
 		select {
 		/*
-			<- update_single_elevator
-				*when a state is sent to be updated
-				 struct:
-					ID		string
-					State	state
-
 
 			<- OR global map
 				*when master is initiated, it will request the other peers for their copy
 				of the global map and OR them together.
 				OR'ing will happen here.
-
-			<- redistribute
-				*calculate assignment and push to peers
 		*/
 
 		case st := <-updateElevState:
@@ -92,8 +89,15 @@ func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, gl
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			globalUpdatedOrders <- updatedOrders
-		}
 
+		case iAmMaster := <-iAmMasterCh:
+			if iAmMaster {
+				//REQUEST ORDER LIST FROM PEERS
+			} else {
+				go ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders)
+				return
+			}
+		}
 	}
 }
 
