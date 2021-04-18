@@ -1,6 +1,7 @@
 package TCPmsg
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
@@ -20,7 +21,7 @@ type Client struct {
 }
 type peerConnection struct {
 	peer       peers.Peer
-	msgChannel chan []byte
+	msgChannel chan Request
 }
 
 /*type peerConnections struct {
@@ -44,9 +45,8 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 			//Add new peers, remove lost peers
 			if newPeers != nil {
 				for _, p := range newPeers {
-					connectedPeers[p.Id].peer = p
-					msgCh := make(chan []byte, 100)
-					connectedPeers[p.Id].msgChannel = msgCh
+					msgCh := make(chan Request, 100)
+					connectedPeers[p.Id] = peerConnection{p, msgCh}
 					go handlePeerConnection(p, msgCh, peerLostCh)
 				}
 				for _, p := range lostPeers {
@@ -54,6 +54,7 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 				}
 			}
 		case pLost := <-peerLostCh:
+			//Delete connection if TCP con closes
 			if _, ok := connectedPeers[pLost.Id]; ok {
 				delete(connectedPeers, pLost.Id)
 			}
@@ -62,9 +63,9 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 	}
 }
 
-func handlePeerConnection(p peers.Peer, msg <-chan []byte, pLostCh chan<- peers.Peer) {
-	port := fmt.Sprintf(":%d", p.Port)
-	conn, err := net.Dial("tcp", port)
+func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers.Peer) {
+	addr := fmt.Sprintf("%s:%d", p.Ip, p.Port)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		fmt.Println("Network ")
 		fmt.Println(err)
@@ -76,7 +77,20 @@ func handlePeerConnection(p peers.Peer, msg <-chan []byte, pLostCh chan<- peers.
 		The connection will wait for TCP timeout to close*/
 		conn.Close()
 	}()
+	for {
+		select {
+		case message := <-msg:
+			bytes, err := json.Marshal(message)
+			_, err = conn.Write(bytes)
+			_, err = conn.Write([]byte("\n"))
+			if err != nil {
+				println("Write to server failed:", err.Error())
+			}
 
+			println("write to server = ", string(bytes))
+
+		}
+	}
 }
 
 func difference(a, b []peers.Peer) (diff []peers.Peer) {
