@@ -47,7 +47,7 @@ func main() {
 	// This could be used to signal that we are somehow "unavailable".
 	peerTxEnable := make(chan bool)
 	isMasterUpdate := make(chan bool)
-	go peers.Transmitter(15647, id, isMasterUpdate, peerTxEnable)
+	go peers.Transmitter(15647, id, 8080, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
 	//TCP listener server
