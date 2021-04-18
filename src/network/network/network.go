@@ -14,14 +14,13 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func NetworkTest(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels) {
+func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels, isMasterUpdate chan bool) {
 
 	
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	tcpPort := 8080
 	//tcpMsgCh := make(chan types.NetworkMessage, 200)
-	isMasterUpdate := make(chan bool)
 
 	tcpPort = runTCPServerAndClient(rxChannels, networkSendCh, peerUpdateCh, tcpPort)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)

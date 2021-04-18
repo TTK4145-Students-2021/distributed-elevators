@@ -16,12 +16,15 @@ func main() {
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
+
+	iAmMasterCh := make(chan bool)
+	
 	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
 	updateElevStateChannel := make(chan State, 200)
 	RXChannels := RXChannels{StateCh: updateElevStateChannel,
 	GlobalOrdersCh: globalUpdatedOrdersChannel}
 	networkSendCh := make(chan NetworkMessage, 200)
-	network.NetworkTest(id, networkSendCh, RXChannels)
+	network.InitNetwork(id, networkSendCh, RXChannels, iAmMasterCh)
 	
 
 	localUpdatedOrders := make(chan OrderMatrix)
@@ -32,7 +35,7 @@ func main() {
 	
 
 	orderMergeCh := make(chan GlobalOrderMap)
-	iAmMasterCh := make(chan bool)
+	
 
 	fmt.Println("### Starting Elevator ###")
 	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, networkSendCh, completedOrder)
