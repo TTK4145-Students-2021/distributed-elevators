@@ -1,6 +1,8 @@
 Elevator Project
 ================
-
+### TODO
+- Network module short cutting 
+- Elevator box turned off, what should happen?
 
 Summary
 -------
