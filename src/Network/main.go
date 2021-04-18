@@ -43,26 +43,29 @@ func main() {
 	// We make a channel for receiving updates on the id's of the peers that are
 	//  alive on the network
 	peerUpdateCh := make(chan peers.PeerUpdate)
-	// We can disable/enable the transmitter after it has been started.
-	// This could be used to signal that we are somehow "unavailable".
-	peerTxEnable := make(chan bool)
-	isMasterUpdate := make(chan bool)
-	go peers.Transmitter(15647, id, 8080, isMasterUpdate, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
 
 	//TCP listener server
 	tcpPort := 8080
 	portCh := make(chan int, 1)
-	tCh1 := make(chan jsonpipe.TestMSG, 1)
+	tCh1 := make(chan TCPmsg.TestMSG, 1)
 	rxch := TCPmsg.RXChannels{TestCh1: tCh1}
 	server := TCPmsg.NewServer(rxch)
 
-	//Check if TCP listen port is available, otherwise increment until available port is found
-
-	address := "0.0.0.0:"
-	go server.ListenAndServe(address, tcpPort, portCh)
-	tcpPort <- portCh
+	//Spawn TCP listen clent handler, get assigned port
+	go server.ListenAndServe(tcpPort, portCh)
+	tcpPort = <-portCh
 	fmt.Println("Port ", tcpPort)
+
+	// We can disable/enable the transmitter after it has been started.
+	// This could be used to signal that we are somehow "unavailable".
+	peerTxEnable := make(chan bool)
+	isMasterUpdate := make(chan bool)
+	go peers.Transmitter(15647, id, tcpPort, isMasterUpdate, peerTxEnable)
+	go peers.Receiver(15647, peerUpdateCh)
+
+	//TCP client handler
+	txch := TCPmsg.TXChannels{TestCh1: tCh1}
+	go TCPmsg.ClientHandler(txch, peerUpdateCh)
 	// We make channels for sending and receiving our custom data types
 	helloTx := make(chan HelloMsg)
 	helloRx := make(chan HelloMsg)
@@ -84,12 +87,12 @@ func main() {
 	fmt.Println("Started")
 	for {
 		select {
-		case p := <-peerUpdateCh:
-			fmt.Printf("Peer update:\n")
-			for _, v := range p.Peers {
-				fmt.Printf("  Peer: id:%s, ip: %s, isMaster:%t   \n\n", v.Id, v.Ip, v.IsMaster)
+		/*case p := <-peerUpdateCh:
+		fmt.Printf("Peer update:\n")
+		for _, v := range p.Peers {
+			fmt.Printf("  Peer: id:%s, ip: %s, isMaster:%t   \n\n", v.Id, v.Ip, v.IsMaster)
 
-			}
+		}*/
 		case a := <-tCh1:
 			fmt.Println("Got TCP message: ", a)
 			//case a := <-helloRx:

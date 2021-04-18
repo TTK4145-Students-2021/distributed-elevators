@@ -28,7 +28,7 @@ type Server struct {
 
 type Request struct {
 	ChannelAdress string `json:"mAdd"`
-	RequestId     string `json:"reqId"`
+	ElevatorId    string `json:"reqId"`
 	//Data          map[string]interface{} `json:"data"`
 	Data []byte `json:"data"`
 }
@@ -56,11 +56,11 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 	//Iterate until free TCP port is found, send port back through channel
 	for {
 		var err error
-		server, err = net.Listen("tcp", string(port))
+		addr := fmt.Sprintf("0.0.0.0:%d", port)
+		server, err = net.Listen("tcp", addr)
 		if err != nil {
 			fmt.Println("Listen err ", err)
 			port++
-			return
 		} else {
 			portCh <- port
 			break
@@ -74,7 +74,7 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 		select {
 		case conn := <-newConnections:
 			addr := conn.RemoteAddr().String()
-			fmt.Printf("Accepted new client, %v", addr)
+			fmt.Printf("Accepted new client, %v\n", addr)
 			allClients[conn] = addr
 			go read(conn, messages, deadConnections)
 		case conn := <-deadConnections:

@@ -14,7 +14,7 @@ import (
 type Peer struct {
 	Id       string
 	Ip       string
-	TcpPort  int 
+	TcpPort  int
 	IsMaster bool
 	lastSeen time.Time
 }
@@ -59,7 +59,6 @@ func Transmitter(udpPort int, id string, tcpPort int, isMasterUpdate <-chan bool
 		if enable {
 			conn.WriteTo(jsonMsg, addr)
 		}
-
 	}
 }
 
@@ -68,8 +67,9 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 	var buf [1024]byte
 	var p Peer
 	var pUpdate PeerUpdate
+	pUpdateTimeout := time.Second
+	pUpdateTimer := time.Now()
 	lastSeen := make(map[string]Peer)
-
 	conn := conn.DialBroadcastUDP(udpPort)
 
 	for {
@@ -97,7 +97,7 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 		}
 
 		// Sending update
-		if updated {
+		if updated || time.Since(pUpdateTimer) > pUpdateTimeout {
 			pUpdate.Peers = make([]Peer, 0, len(lastSeen))
 
 			for _, v := range lastSeen {
@@ -107,6 +107,7 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 				return pUpdate.Peers[i].Id > pUpdate.Peers[j].Id
 			})
 			peerUpdateCh <- pUpdate
+			pUpdateTimer = time.Now()
 		}
 	}
 }
