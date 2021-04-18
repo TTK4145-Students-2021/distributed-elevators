@@ -4,47 +4,48 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"time"
 
 	"../peers"
 )
 
-type TXChannels struct {
-	/*StateCh chan //elev.state
-	OrderUpdateCH chan //OrderUpdateCH
-	AllOrdersCH chan //orders */
-	TestCh1 chan TestMSG `addr:"testch1"`
-	TestCh2 chan TestMSG `addr:"testch2"`
+type TCPmessage struct {
+	Data       interface{}
+	Receipient Receipient
+	MAddr      string
 }
 
-type Client struct {
-	txChannels TXChannels
-}
 type peerConnection struct {
 	peer       peers.Peer
 	msgChannel chan Request
 }
 
-/*type peerConnections struct {
-	peers []peerConnection
-}*/
+type Receipient int
 
-func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
+const (
+	All Receipient = iota
+	Master
+)
+
+func ClientHandler(TCPmessage <-chan TCPmessage, pCh <-chan peers.PeerUpdate) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
 	for {
 		select {
 		case pUpdate := <-pCh:
 			fmt.Printf("TCPClient: Got peer update\n")
+
 			//Create array of connectedPeers from map
 			conPeersArray := make([]peers.Peer, 0)
 			for _, p := range connectedPeers {
 				conPeersArray = append(conPeersArray, p.peer)
 			}
+
 			//Find new and lost peers compared to last iteration
 			newPeers := difference(pUpdate.Peers, conPeersArray)
 			lostPeers := difference(conPeersArray, pUpdate.Peers)
-			fmt.Println("Lost Peers: ", lostPeers)
+			if lostPeers != nil {
+				fmt.Println("Lost Peers: ", lostPeers)
+			}
 			//Add new peers, remove lost peers
 			for _, p := range newPeers {
 				msgCh := make(chan Request, 100)
@@ -57,18 +58,24 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 		case pLost := <-peerLostCh:
 			//Delete connection if TCP con closes
 			delete(connectedPeers, pLost.Id)
-		case <-time.After(500 * time.Millisecond):
-			//This is a temp test, should be removed
-			fmt.Println("ConPeers: ", connectedPeers)
-			data := &TestMSG{42, "Data boiiii"}
-			dat, _ := json.Marshal(data)
+		case message := <-TCPmessage:
+			dat, _ := json.Marshal(message.Data)
 			req := Request{
-				ElevatorId:    "102",
-				ChannelAdress: "testch1",
+				ElevatorId:    "102", //Add elevator id here
+				ChannelAdress: message.MAddr,
 				Data:          dat,
 			}
-			for _, p := range connectedPeers {
-				p.msgChannel <- req
+			switch message.Receipient {
+			case All:
+				for _, p := range connectedPeers {
+					p.msgChannel <- req
+				}
+			case Master:
+				for _, p := range connectedPeers {
+					if p.peer.IsMaster {
+						p.msgChannel <- req
+					}
+				}
 			}
 		}
 
@@ -76,11 +83,10 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 }
 
 func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers.Peer) {
-	fmt.Printf("TCPclient: Added peer connection\n")
 	addr := fmt.Sprintf("%s:%d", p.Ip, p.TcpPort)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		fmt.Println("Network ")
+		fmt.Println("TCP network connection error: ")
 		fmt.Println(err)
 		return
 	}
@@ -91,17 +97,15 @@ func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers
 		conn.Close()
 	}()
 	for {
-		select {
-		case message := <-msg:
-			bytes, _ := json.Marshal(message)
-			_, _ = conn.Write(bytes)
-			_, err = conn.Write([]byte("\n"))
-			if err != nil {
-				println("Write to server failed:", err.Error())
-				return
-			}
-			//println("write to server = ", string(bytes))
+		message := <-msg
+		bytes, _ := json.Marshal(message)
+		_, _ = conn.Write(bytes)
+		_, err = conn.Write([]byte("\n"))
+		if err != nil {
+			println("Write to server failed:", err.Error())
+			return
 		}
+
 	}
 }
 

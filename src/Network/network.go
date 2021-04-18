@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"./network/bcast"
 	"./network/localip"
 	TCPmsg "./network/messaging"
 	"./network/peers"
@@ -47,8 +46,9 @@ func main() {
 	//TCP listener server
 	tcpPort := 8080
 	portCh := make(chan int, 1)
-	tCh1 := make(chan TCPmsg.TestMSG, 1)
-	rxch := TCPmsg.RXChannels{TestCh1: tCh1}
+	//tCh1 := make(chan TCPmsg.TestMSG, 1)
+	helloMsgCh := make(chan TCPmsg.HelloMsg, 1)
+	rxch := TCPmsg.RXChannels{HelloMsgCh: helloMsgCh}
 	server := TCPmsg.NewServer(rxch)
 
 	//Spawn TCP listen clent handler, get assigned port
@@ -64,23 +64,16 @@ func main() {
 	go peers.Receiver(15647, peerUpdateCh)
 
 	//TCP client handler
-	txch := TCPmsg.TXChannels{TestCh1: tCh1}
-	go TCPmsg.ClientHandler(txch, peerUpdateCh)
-	// We make channels for sending and receiving our custom data types
-	helloTx := make(chan HelloMsg)
-	helloRx := make(chan HelloMsg)
-	// ... and start the transmitter/receiver pair on some port
-	// These functions can take any number of channels! It is also possible to
-	//  start multiple transmitters/receivers on the same port.
-	go bcast.Transmitter(16569, helloTx)
-	go bcast.Receiver(16569, helloRx)
+	tcpMsgCh := make(chan TCPmsg.TCPmessage, 200)
+	go TCPmsg.ClientHandler(tcpMsgCh, peerUpdateCh)
 
 	// The example message. We just send one of these every second.
 	go func() {
 		helloMsg := HelloMsg{"Hello from " + id, 0}
 		for {
 			helloMsg.Iter++
-			helloTx <- helloMsg
+			tcpmsg := TCPmsg.TCPmessage{helloMsg, TCPmsg.All, "hellomsg"}
+			tcpMsgCh <- tcpmsg
 			time.Sleep(1 * time.Second)
 		}
 	}()
@@ -93,7 +86,7 @@ func main() {
 			fmt.Printf("  Peer: id:%s, ip: %s, isMaster:%t   \n\n", v.Id, v.Ip, v.IsMaster)
 
 		}*/
-		case a := <-tCh1:
+		case a := <-helloMsgCh:
 			fmt.Println("Got TCP message: ", a)
 			//case a := <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)

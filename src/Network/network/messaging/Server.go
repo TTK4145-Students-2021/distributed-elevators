@@ -13,12 +13,16 @@ type TestMSG struct {
 	Number  int    `json:"number"`
 	Message string `json:"message"`
 }
+
+type HelloMsg struct {
+	Message string
+	Iter    int
+}
+
 type RXChannels struct {
-	/*StateCh chan //elev.state
-	OrderUpdateCH chan //OrderUpdateCH
-	AllOrdersCH chan //orders */
-	TestCh1 chan TestMSG `addr:"testch1"`
-	TestCh2 chan TestMSG `addr:"testch2"`
+	TestCh1    chan TestMSG  `addr:"testch1"`
+	TestCh2    chan TestMSG  `addr:"testch2"`
+	HelloMsgCh chan HelloMsg `addr:"hellomsg"`
 }
 type Server struct {
 	rxChannels RXChannels
@@ -29,8 +33,7 @@ type Server struct {
 type Request struct {
 	ChannelAdress string `json:"mAdd"`
 	ElevatorId    string `json:"reqId"`
-	//Data          map[string]interface{} `json:"data"`
-	Data []byte `json:"data"`
+	Data          []byte `json:"data"`
 }
 
 type Message struct {
@@ -66,7 +69,7 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 			break
 		}
 	}
-	log.Printf("JSON Pipe Server listening on %s\n", port)
+	log.Printf("TCP Server listening on %s\n", port)
 
 	go acceptConnections(server, newConnections)
 
@@ -122,20 +125,15 @@ func (server Server) HandleMessage(msg Message) {
 	for i := 0; i < w.NumField(); i++ {
 		ch := w.Field(i)
 		chValue := x.Field(i).Interface()
-		//fmt.Printf("Addr: %s\n", ch.Tag.Get("addr"))
 		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
 
 		if request.ChannelAdress == typeName {
-			//fmt.Printf("Channel: %s\n", typeName)
 			v := reflect.New(T)
 			err := json.Unmarshal(request.Data, v.Interface())
 			if err != nil {
 				fmt.Println("Error decoding JSON:" + err.Error())
 			}
-			//fmt.Printf("request Data: %s\n", request.Data)
-			//fmt.Printf("Sending on channel: %s\n", T)
-			//fmt.Printf("Chan: %s\n", reflect.ValueOf(chV))
 			reflect.Select([]reflect.SelectCase{{
 				Dir:  reflect.SelectSend,
 				Chan: reflect.ValueOf(chValue),
