@@ -44,9 +44,10 @@ func ClientHandler(txCh TXChannels, pCh <-chan peers.PeerUpdate) {
 			//Add new peers, remove lost peers
 			if newPeers != nil {
 				for _, p := range newPeers {
-					connectedPeers[p.Id] = p
-					msgCh := make()
-					go handlePeerConnection(p, peerLostCh)
+					connectedPeers[p.Id].peer = p
+					msgCh := make(chan []byte, 100)
+					connectedPeers[p.Id].msgChannel = msgCh
+					go handlePeerConnection(p, msgCh, peerLostCh)
 				}
 				for _, p := range lostPeers {
 					delete(connectedPeers, p.Id)
