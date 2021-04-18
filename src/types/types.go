@@ -40,7 +40,7 @@ type ButtonEvent struct {
 }
 
 type OrderEvent struct {
-	ID        string
+	ElevID    string
 	Completed bool
 	Order     ButtonEvent
 }
@@ -82,6 +82,15 @@ func (mat OrderMatrix) String() string {
 		s = append(s, "\n")
 	}
 	return strings.Join(s, "")
+}
+
+func (mat OrderMatrix) OrderOnFloor(floor int) bool {
+	for _, btn := range mat[floor] {
+		if btn {
+			return true
+		}
+	}
+	return false
 }
 
 func (m GlobalOrderMap) String() string {

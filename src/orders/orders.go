@@ -18,7 +18,7 @@ func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights 
 			/* simple case used for testing new orders direct with FSM*/
 
 			newOrder := OrderEvent{
-				ID:        ID,
+				ElevID:    ID,
 				Completed: false,
 				Order:     button}
 
@@ -34,7 +34,7 @@ func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights 
 				}
 
 				completed := OrderEvent{
-					ID:        ID,
+					ElevID:    ID,
 					Completed: true,
 					Order:     order}
 				registerOrder <- completed

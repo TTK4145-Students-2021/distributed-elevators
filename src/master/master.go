@@ -3,7 +3,6 @@ package master
 import (
 	"encoding/json"
 	"fmt"
-
 	// "io/ioutil"
 	"os/exec"
 
@@ -19,30 +18,24 @@ import (
 // 	CabOrders [N_FLOORS]bool `json:"cabRequests"`
 // }
 
-type SingleElevator struct {
-	Behavior  string         `json:"behavior"`
-	Floor     int            `json:"floor"`
-	Direction string         `json:"direction"`
-	CabOrders [N_FLOORS]bool `json:"cabRequests"`
-}
-
 type CombinedElevators struct {
 	GlobalOrders [N_FLOORS][N_BUTTONS - 1]bool `json:"hallRequests"`
 	States       map[string]SingleElevator     `json:"states"`
 }
 
+type SingleElevator struct {
+	Behavior  string `json:"behavior"`
+	Floor     int    `json:"floor"`
+	Direction string `json:"direction"`
+	available bool
+	CabOrders [N_FLOORS]bool `json:"cabRequests"`
+}
+
 func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap) {
 	println("## Running Master ##")
-	/* 	channels */
-	// reAssign := make(chan bool, 20)
-	/* 	variables */
-	// e := CombinedElevators{
-	// 	GlobalOrders: [N_FLOORS][N_BUTTONS - 1]bool{},
-	// 	States:       make(map[string]SingleElevator),
-	// }
 
-	gl_orders := [N_FLOORS][N_BUTTONS - 1]bool{}
-	gl_states := map[string]SingleElevator{}
+	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
+	allElevatorStates := map[string]SingleElevator{}
 
 	for {
 		select {
@@ -52,18 +45,6 @@ func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, gl
 				 struct:
 					ID		string
 					State	state
-
-			<- order_new
-				stuct:
-					ID			string
-
-
-			<- order_done
-				stuct:
-					ID			string
-					completed	bool
-					floor		int
-					type		[N_BUTTONS]bool
 
 
 			<- OR global map
@@ -77,48 +58,77 @@ func RunMaster(registerOrder <-chan OrderEvent, updateElevState <-chan State, gl
 
 		case st := <-updateElevState:
 			println("M: Got State. ID: ", st.ID)
-			_, exist := gl_states[st.ID]
+			elevator, exist := allElevatorStates[st.ID]
 
-			switch exist {
-			case false:
-				gl_states[st.ID] = SingleElevator{
-					st.Behavior.String(),
-					st.Floor,
-					st.Direction.String(),
-					[N_FLOORS]bool{}}
-			case true:
-				cab := gl_states[st.ID].CabOrders
-				gl_states[st.ID] = SingleElevator{
-					st.Behavior.String(),
-					st.Floor,
-					st.Direction.String(),
-					cab}
+			CabOrders := [N_FLOORS]bool{}
+			if exist {
+				CabOrders = elevator.CabOrders
 			}
+			allElevatorStates[st.ID] = SingleElevator{
+				st.Behavior.String(),
+				st.Floor,
+				st.Direction.String(),
+				st.Available,
+				CabOrders}
 
-		case o := <-registerOrder:
-			println("M: master got order")
-			id := o.ID
-			if _, exist := gl_states[id]; !exist {
-				println("M: No client with ID: ", o.ID)
+		case order := <-registerOrder:
+			//debug
+			a := map[bool]string{false: "new", true: "completed"}
+			println("M: master got", a[order.Completed])
+			//debug^
+			id := order.ElevID
+			if _, exist := allElevatorStates[id]; !exist { //What happenes if order given, but no elevator state present?
+				println("M: No client with ID: ", order.ElevID)
 				break
 			}
-
-			switch o.Order.Button {
+			switch order.Order.Button {
 			case BT_HallUp, BT_HallDown:
-				gl_orders[o.Order.Floor][o.Order.Button] = !o.Completed
+				hallOrders[order.Order.Floor][order.Order.Button] = !order.Completed
 			case BT_Cab: //What happenes if order given, but no elevator state present?
-				elev := gl_states[id]
-				elev.CabOrders[o.Order.Floor] = !o.Completed
-				gl_states[id] = elev
+				elev := allElevatorStates[id]
+				elev.CabOrders[order.Order.Floor] = !order.Completed
+				allElevatorStates[id] = elev
 			}
 
-			fmt.Println("Reassigning")
-			statesAndOrders := CombinedElevators{gl_orders, gl_states}
-			updatedOrders := calculateDistribution(statesAndOrders.Json())
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			globalUpdatedOrders <- updatedOrders
-			// fmt.Println(updatedOrders)
+		}
+
+	}
+}
+
+func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates map[string]SingleElevator) GlobalOrderMap {
+	//removing non available elevators from input
+	var unavailable []string
+	inputmap := make(map[string]SingleElevator)
+	for elevID, elevState := range allElevatorStates {
+		if elevState.available == false {
+			unavailable = append(unavailable, elevID)
+		} else {
+			inputmap[elevID] = elevState
 		}
 	}
+	// if len(inputmap) == 0 {
+	// 	//TODO: HANDLE WHEN INPUTMAP EMPTY
+	// 	fmt.Println("M: Shiii, we got an empty inputmap in reAssignOrders") //remove
+	// 	inputmap = allElevatorStates
+	// 	unavailable = nil
+	// }
+
+	//calculationg distribution based on input
+	jsonInput := CombinedElevators{hallOrders, inputmap}.Json()
+	updatedOrders := calculateDistribution(jsonInput)
+
+	//adding non-assigned elevators back to the list
+	for _, elevID := range unavailable {
+		orders := OrderMatrix{}
+		for floor := range orders {
+			orders[floor][BT_Cab] = allElevatorStates[elevID].CabOrders[floor]
+			fmt.Println("unavailable is ", unavailable)
+			updatedOrders[elevID] = orders
+		}
+	}
+	return updatedOrders
 }
 
 func (c CombinedElevators) Json() string {
@@ -130,17 +140,10 @@ func (c CombinedElevators) Json() string {
 func calculateDistribution(input_json string) GlobalOrderMap {
 
 	// input, err := ioutil.ReadFile("../test.json")
-	// check(err)
 	out, _ := exec.Command("../hall_request_assigner", "--includeCab", "--input", input_json).Output()
 
-	var assigned_orders GlobalOrderMap
+	assigned_orders := make(GlobalOrderMap)
 	json.Unmarshal(out, &assigned_orders)
 
 	return assigned_orders
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
 }
