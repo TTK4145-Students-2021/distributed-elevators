@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"reflect"
+	"../../types"
 )
 
 type TestMSG struct {
@@ -19,13 +20,8 @@ type HelloMsg struct {
 	Iter    int
 }
 
-type RXChannels struct {
-	TestCh1    chan TestMSG  `addr:"testch1"`
-	TestCh2    chan TestMSG  `addr:"testch2"`
-	HelloMsgCh chan HelloMsg `addr:"hellomsg"`
-}
 type Server struct {
-	rxChannels RXChannels
+	rxChannels types.RXChannels
 	Reader     *bufio.Reader
 	Encoder    *json.Encoder
 }
@@ -41,7 +37,7 @@ type Message struct {
 	Data       []byte
 }
 
-func NewServer(rxChs RXChannels) *Server {
+func NewServer(rxChs types.RXChannels) *Server {
 	server := Server{
 		rxChannels: rxChs,
 	}
@@ -113,10 +109,9 @@ func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
 }
 
 func (server Server) HandleMessage(msg Message) {
-
 	request := Request{}
 	if err := json.Unmarshal(msg.Data, &request); err != nil {
-		log.Println("Error decoding JSON:" + err.Error())
+		fmt.Println("Error decoding JSON:" + err.Error())
 	}
 	w := reflect.TypeOf(server.rxChannels)
 	x := reflect.ValueOf(server.rxChannels)
@@ -126,7 +121,6 @@ func (server Server) HandleMessage(msg Message) {
 		chValue := x.Field(i).Interface()
 		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
-
 		if request.ChannelAdress == typeName {
 			v := reflect.New(T)
 			err := json.Unmarshal(request.Data, v.Interface())

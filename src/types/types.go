@@ -59,6 +59,20 @@ type State struct { //ElevState??
 	Available bool
 }
 
+type Receipient int
+
+const (
+	All Receipient = iota
+	Master
+)
+type NetworkMessage struct {
+	Data       interface{}
+	Receipient Receipient
+	MAddr      string
+}
+type RXChannels struct {
+	StateCh chan State `addr:"statemsg"`
+}
 /* #### Basic member functions #### */
 
 func (d Dir) String() string {

@@ -1,12 +1,12 @@
-package main
+package network
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
-	TCPmsg "./networkpkg/messaging"
-	peers "./networkpkg/peers"
+	"../TCPmsg"
+	"../peers"
+	"../../types"
 )
 
 type HelloMsg struct {
@@ -14,17 +14,15 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func main() {
+func NetworkTest(id string) {
 
-	var id string
-	flag.StringVar(&id, "id", "", "id of this peer")
-	flag.Parse()
+	
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
-	helloMsgCh := make(chan TCPmsg.HelloMsg, 1)
-	rxCh := TCPmsg.RXChannels{HelloMsgCh: helloMsgCh}
+	stateMsgCh := make(chan types.State, 1)
+	rxCh := types.RXChannels{StateCh: stateMsgCh}
 	tcpPort := 8080
-	tcpMsgCh := make(chan TCPmsg.NetworkMessage, 200)
+	tcpMsgCh := make(chan types.NetworkMessage, 200)
 	isMasterUpdate := make(chan bool)
 
 	tcpPort = runTCPServerAndClient(rxCh, tcpMsgCh, peerUpdateCh, tcpPort)
@@ -32,10 +30,10 @@ func main() {
 
 	// The example message. We just send one of these every second.
 	go func() {
-		helloMsg := HelloMsg{"Hello from " + id, 0}
+		stateMsg := types.State{ID:"hah"}
 		for {
-			helloMsg.Iter++
-			tcpmsg := TCPmsg.NetworkMessage{helloMsg, TCPmsg.All, "hellomsg"}
+			//helloMsg.Iter++
+			tcpmsg := types.NetworkMessage{stateMsg, types.All, "statemsg"}
 			tcpMsgCh <- tcpmsg
 			time.Sleep(1 * time.Second)
 		}
@@ -43,7 +41,7 @@ func main() {
 	fmt.Println("Started")
 	for {
 		select {
-		case a := <-helloMsgCh:
+		case a := <-stateMsgCh:
 			fmt.Println("Got TCP message: ", a)
 			//case a := <-helloRx:
 			//fmt.Printf("Received: %#v\n", a)
@@ -51,7 +49,7 @@ func main() {
 	}
 }
 
-func runTCPServerAndClient(rxCh TCPmsg.RXChannels, tcpMsgCh <-chan TCPmsg.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
+func runTCPServerAndClient(rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
 
 	portCh := make(chan int, 1)
 	server := TCPmsg.NewServer(rxCh)

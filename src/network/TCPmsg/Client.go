@@ -5,34 +5,24 @@ import (
 	"fmt"
 	"net"
 
+	"../../types"
 	"../peers"
 )
-
-type NetworkMessage struct {
-	Data       interface{}
-	Receipient Receipient
-	MAddr      string
-}
 
 type peerConnection struct {
 	peer       peers.Peer
 	msgChannel chan Request
 }
 
-type Receipient int
 
-const (
-	All Receipient = iota
-	Master
-)
 
-func ClientHandler(networkMessage <-chan NetworkMessage, pCh <-chan peers.PeerUpdate) {
+func ClientHandler(networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
 	for {
 		select {
 		case pUpdate := <-pCh:
-			fmt.Printf("TCPClient: Got peer update\n")
+			//fmt.Printf("TCPClient: Got peer update\n")
 
 			//Create array of connectedPeers from map
 			conPeersArray := make([]peers.Peer, 0)
@@ -43,19 +33,20 @@ func ClientHandler(networkMessage <-chan NetworkMessage, pCh <-chan peers.PeerUp
 			//Find new and lost peers compared to last iteration
 			newPeers := difference(pUpdate.Peers, conPeersArray)
 			lostPeers := difference(conPeersArray, pUpdate.Peers)
-			if lostPeers != nil {
-				fmt.Println("Lost Peers: ", lostPeers)
-			}
+
 			//Add new peers, remove lost peers
 			for _, p := range newPeers {
+				fmt.Println("TCP: New peer:", p)
 				msgCh := make(chan Request, 100)
 				connectedPeers[p.Id] = peerConnection{p, msgCh}
 				go handlePeerConnection(p, msgCh, peerLostCh)
 			}
 			for _, p := range lostPeers {
+				fmt.Println("TCP: Lost peer:", p)
 				delete(connectedPeers, p.Id)
 			}
 		case pLost := <-peerLostCh:
+			//fmt.Println("TCP: Lost peer:", pLost)
 			//Delete connection if TCP con closes
 			delete(connectedPeers, pLost.Id)
 		case message := <-networkMessage:
@@ -66,11 +57,11 @@ func ClientHandler(networkMessage <-chan NetworkMessage, pCh <-chan peers.PeerUp
 				Data:          dat,
 			}
 			switch message.Receipient {
-			case All:
+			case types.All:
 				for _, p := range connectedPeers {
 					p.msgChannel <- req
 				}
-			case Master:
+			case types.Master:
 				for _, p := range connectedPeers {
 					if p.peer.IsMaster {
 						p.msgChannel <- req
