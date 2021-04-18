@@ -2,7 +2,7 @@ package network
 
 import (
 	"fmt"
-	"time"
+	//"time"
 
 	"../TCPmsg"
 	"../peers"
@@ -14,39 +14,18 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func NetworkTest(id string) {
+func NetworkTest(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels) {
 
 	
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
-	stateMsgCh := make(chan types.State, 1)
-	rxCh := types.RXChannels{StateCh: stateMsgCh}
 	tcpPort := 8080
-	tcpMsgCh := make(chan types.NetworkMessage, 200)
+	//tcpMsgCh := make(chan types.NetworkMessage, 200)
 	isMasterUpdate := make(chan bool)
 
-	tcpPort = runTCPServerAndClient(rxCh, tcpMsgCh, peerUpdateCh, tcpPort)
+	tcpPort = runTCPServerAndClient(rxChannels, networkSendCh, peerUpdateCh, tcpPort)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
 
-	// The example message. We just send one of these every second.
-	go func() {
-		stateMsg := types.State{ID:"hah"}
-		for {
-			//helloMsg.Iter++
-			tcpmsg := types.NetworkMessage{stateMsg, types.All, "statemsg"}
-			tcpMsgCh <- tcpmsg
-			time.Sleep(1 * time.Second)
-		}
-	}()
-	fmt.Println("Started")
-	for {
-		select {
-		case a := <-stateMsgCh:
-			fmt.Println("Got TCP message: ", a)
-			//case a := <-helloRx:
-			//fmt.Printf("Received: %#v\n", a)
-		}
-	}
 }
 
 func runTCPServerAndClient(rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {

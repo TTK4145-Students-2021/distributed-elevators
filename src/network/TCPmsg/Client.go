@@ -53,7 +53,7 @@ func ClientHandler(networkMessage <-chan types.NetworkMessage, pCh <-chan peers.
 			dat, _ := json.Marshal(message.Data)
 			req := Request{
 				ElevatorId:    "102", //Add elevator id here
-				ChannelAdress: message.MAddr,
+				ChannelAdress: message.ChAddr,
 				Data:          dat,
 			}
 			switch message.Receipient {

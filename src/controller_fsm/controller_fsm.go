@@ -6,6 +6,7 @@ import (
 
 	hw "../hardware_io"
 	. "../types"
+	
 )
 
 type Elevator struct {
@@ -27,7 +28,7 @@ Orders // Lights
 -
 */
 
-func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- State, completedOrder chan<- int) {
+func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- NetworkMessage, completedOrder chan<- int) {
 	println("# Starting Controller FSM #")
 	hw.Init("localhost:15657", N_FLOORS)
 
@@ -93,7 +94,11 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				errorTimeout.Reset(5 * time.Second)
 			}
 			e.State.Available = true
-			updateElevState <- e.State
+			updateState := e.State
+			NetMsg := NetworkMessage{Data:updateState,
+				Receipient:Master,
+			ChAddr:"statech"}
+			updateElevState <- NetMsg
 
 		case <-door_open:
 			println("FSM: Door Open")
@@ -157,7 +162,11 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			/* Case where elevator gets stuck */
 			fmt.Println("FMS: FATAL ERROR - Motor Timout triggered, elevator stuck?")
 			e.State.Available = false
-			updateElevState <- e.State
+			updateState := e.State
+			NetMsg := NetworkMessage{Data:updateState,
+				Receipient:Master,
+			ChAddr:"statech"}
+			updateElevState <- NetMsg
 
 		case <-stopSensorCh:
 			hw.SetMotorDirection(hw.MD_Stop)

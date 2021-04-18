@@ -25,7 +25,7 @@ type SingleElevator struct {
 
 /* channels */
 
-func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap) {
+func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- NetworkMessage, orderMergeCh <-chan GlobalOrderMap) {
 	for {
 		select {
 		case <-iAmMasterCh:
@@ -35,7 +35,7 @@ func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEv
 	}
 }
 
-func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap) {
+func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- NetworkMessage, orderMergeCh <-chan GlobalOrderMap) {
 	println("## Running Master ##")
 
 	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
@@ -88,7 +88,11 @@ func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateE
 			}
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			globalUpdatedOrders <- updatedOrders
+			
+			netMsg := NetworkMessage{Data:updatedOrders,
+				Receipient:All,
+			ChAddr:"globalordersch"}
+			globalUpdatedOrders <- netMsg
 
 		case iAmMaster := <-iAmMasterCh:
 			if iAmMaster {

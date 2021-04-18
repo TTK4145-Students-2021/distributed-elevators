@@ -121,6 +121,7 @@ func (server Server) HandleMessage(msg Message) {
 		chValue := x.Field(i).Interface()
 		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
+		fmt.Println("TCP: Got type: ", typeName)
 		if request.ChannelAdress == typeName {
 			v := reflect.New(T)
 			err := json.Unmarshal(request.Data, v.Interface())

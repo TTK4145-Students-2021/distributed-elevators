@@ -68,10 +68,11 @@ const (
 type NetworkMessage struct {
 	Data       interface{}
 	Receipient Receipient
-	MAddr      string
+	ChAddr      string
 }
 type RXChannels struct {
-	StateCh chan State `addr:"statemsg"`
+	StateCh chan State `addr:"statech"`
+	GlobalOrdersCh chan GlobalOrderMap `addr:"globalordersch"`
 }
 /* #### Basic member functions #### */
 
