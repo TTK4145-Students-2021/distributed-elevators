@@ -1,4 +1,4 @@
-package network1
+package main
 
 import (
 	"flag"
@@ -66,7 +66,7 @@ func runTCPServerAndClient(rxCh TCPmsg.RXChannels, tcpMsgCh <-chan TCPmsg.Networ
 	return tcpPort
 }
 
-func runtUDPServer(id string, tcpPort int, isMasterUpdate chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
+func runUDPServer(id string, tcpPort int, isMasterUpdate chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
 	peerTxEnable := make(chan bool)
 	go peers.Transmitter(15647, id, tcpPort, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
