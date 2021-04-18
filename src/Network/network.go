@@ -1,12 +1,12 @@
-package main
+package network1
 
 import (
 	"flag"
 	"fmt"
 	"time"
 
-	TCPmsg "./network/messaging"
-	"./network/peers"
+	TCPmsg "./networkpkg/messaging"
+	peers "./networkpkg/peers"
 )
 
 type HelloMsg struct {
@@ -24,18 +24,18 @@ func main() {
 	helloMsgCh := make(chan TCPmsg.HelloMsg, 1)
 	rxCh := TCPmsg.RXChannels{HelloMsgCh: helloMsgCh}
 	tcpPort := 8080
-	tcpMsgCh := make(chan TCPmsg.TCPmessage, 200)
+	tcpMsgCh := make(chan TCPmsg.NetworkMessage, 200)
 	isMasterUpdate := make(chan bool)
 
-	tcpPort = TCPServerAndClient(rxCh, tcpMsgCh, peerUpdateCh, tcpPort)
-	go UDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
+	tcpPort = runTCPServerAndClient(rxCh, tcpMsgCh, peerUpdateCh, tcpPort)
+	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
 
 	// The example message. We just send one of these every second.
 	go func() {
 		helloMsg := HelloMsg{"Hello from " + id, 0}
 		for {
 			helloMsg.Iter++
-			tcpmsg := TCPmsg.TCPmessage{helloMsg, TCPmsg.All, "hellomsg"}
+			tcpmsg := TCPmsg.NetworkMessage{helloMsg, TCPmsg.All, "hellomsg"}
 			tcpMsgCh <- tcpmsg
 			time.Sleep(1 * time.Second)
 		}
@@ -51,7 +51,7 @@ func main() {
 	}
 }
 
-func TCPServerAndClient(rxCh TCPmsg.RXChannels, tcpMsgCh <-chan TCPmsg.TCPmessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
+func runTCPServerAndClient(rxCh TCPmsg.RXChannels, tcpMsgCh <-chan TCPmsg.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
 
 	portCh := make(chan int, 1)
 	server := TCPmsg.NewServer(rxCh)
@@ -66,7 +66,7 @@ func TCPServerAndClient(rxCh TCPmsg.RXChannels, tcpMsgCh <-chan TCPmsg.TCPmessag
 	return tcpPort
 }
 
-func UDPServer(id string, tcpPort int, isMasterUpdate chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
+func runtUDPServer(id string, tcpPort int, isMasterUpdate chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
 	peerTxEnable := make(chan bool)
 	go peers.Transmitter(15647, id, tcpPort, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)

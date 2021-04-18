@@ -8,7 +8,7 @@ import (
 	"../peers"
 )
 
-type TCPmessage struct {
+type NetworkMessage struct {
 	Data       interface{}
 	Receipient Receipient
 	MAddr      string
@@ -26,7 +26,7 @@ const (
 	Master
 )
 
-func ClientHandler(TCPmessage <-chan TCPmessage, pCh <-chan peers.PeerUpdate) {
+func ClientHandler(networkMessage <-chan NetworkMessage, pCh <-chan peers.PeerUpdate) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
 	for {
@@ -58,7 +58,7 @@ func ClientHandler(TCPmessage <-chan TCPmessage, pCh <-chan peers.PeerUpdate) {
 		case pLost := <-peerLostCh:
 			//Delete connection if TCP con closes
 			delete(connectedPeers, pLost.Id)
-		case message := <-TCPmessage:
+		case message := <-networkMessage:
 			dat, _ := json.Marshal(message.Data)
 			req := Request{
 				ElevatorId:    "102", //Add elevator id here

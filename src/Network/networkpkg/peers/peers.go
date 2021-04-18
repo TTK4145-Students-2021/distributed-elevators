@@ -96,7 +96,7 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 			}
 		}
 
-		// Sending update
+		// Sending update, send at interval to synchronize UDP and TCP connection loss
 		if updated || time.Since(pUpdateTimer) > pUpdateTimeout {
 			pUpdate.Peers = make([]Peer, 0, len(lastSeen))
 

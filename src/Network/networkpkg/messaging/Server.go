@@ -84,7 +84,6 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
-			//fmt.Printf("Got message\n")
 			go s.HandleMessage(message)
 		}
 	}
