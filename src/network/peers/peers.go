@@ -23,8 +23,8 @@ type PeerUpdate struct {
 	//Lost  []Peer
 }
 
-const interval = 15 * time.Millisecond
-const timeout = 1500 * time.Millisecond
+const interval = 10 * time.Millisecond
+const timeout = 500 * time.Millisecond
 
 func Transmitter(udpPort int, id string, tcpPort int) {
 
