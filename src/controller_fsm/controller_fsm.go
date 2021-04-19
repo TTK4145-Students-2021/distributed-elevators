@@ -35,8 +35,6 @@ func StartElevatorController(
 ) {
 
 	println("# Starting Controller FSM #")
-	hw.Init("localhost:15657", N_FLOORS)
-
 	/* init channels */
 	floorSensorCh := make(chan int)
 	stopSensorCh := make(chan bool)
@@ -155,9 +153,9 @@ func StartElevatorController(
 			}
 
 		case lightMat := <-lightUpdateCh:
-			for floor, arr := range lightMat {
-				for btn, setLamp := range arr {
-					hw.SetButtonLamp(ButtonType(btn), floor, setLamp)
+			for f, row := range lightMat {
+				for b, setLamp := range row {
+					hw.SetButtonLamp(ButtonType(b), f, setLamp)
 				}
 			}
 			e.lights = lightMat
@@ -193,33 +191,11 @@ func (e Elevator) shouldTakeOrder() bool {
 }
 
 /*temp*/
-func clearOrder(e *Elevator) { //REMOVE
-	e.orders[e.State.Floor][BT_HallUp] = false
-	e.orders[e.State.Floor][BT_HallDown] = false
-	e.orders[e.State.Floor][BT_Cab] = false
-}
-func (e Elevator) clearLights() { //REMOVE
-	for btn := 0; btn < N_BUTTONS; btn++ {
-		hw.SetButtonLamp(ButtonType(btn), e.State.Floor, false)
-	}
-}
-
 func (e Elevator) printOrders() { //REMOVE
-	for floor := 0; floor < N_FLOORS; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			println("floor ", floor, "button ", btn, "value ", e.orders[floor][btn])
+	for f := 0; f < N_FLOORS; f++ {
+		for b := 0; b < N_BUTTONS; b++ {
+			println("floor ", f, "button ", b, "value ", e.orders[f][b])
 		}
-	}
-}
-
-func onFloorGetNewBehavior(e Elevator) (Behavior, bool) { //REMOVE
-
-	if e.orders == [N_FLOORS][N_BUTTONS]bool{} {
-		return BH_Idle, false
-	} else if e.shouldTakeOrder() {
-		return BH_DoorOpen, true
-	} else {
-		return BH_Moving, false
 	}
 }
 
@@ -231,7 +207,7 @@ func (e Elevator) chooseDirection() Dir {
 		} else if e.ordersBelow() {
 			return DIR_Down
 		} else {
-			println("FSM: Fatal error")
+			println("FSM: Fatal error, going up")
 		}
 	case DIR_Down:
 		if e.ordersBelow() {
@@ -239,7 +215,7 @@ func (e Elevator) chooseDirection() Dir {
 		} else if e.ordersAbove() {
 			return DIR_Up
 		} else {
-			println("FSM: Fatal error, direction down. Orders above= ", e.ordersAbove())
+			println("FSM: Fatal error, going down")
 		}
 	}
 	return e.State.Direction //MUST REMOVE THIS
@@ -270,12 +246,3 @@ func (e Elevator) ordersBelow() bool {
 	}
 	return false
 }
-
-// func orderOnFloor(mat OrderMatrix, floor int) bool {
-// 	for _, btn := range mat[floor] {
-// 		if btn {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }

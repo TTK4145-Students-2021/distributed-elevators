@@ -71,7 +71,7 @@ type NetworkMessage struct {
 	Receipient Receipient
 	ChAddr     string
 }
-type RXChannels struct {
+type RXChannels struct { //kan defineres i main??
 	StateUpdateCh       chan State          `addr:"stateupdatech"`
 	RegisterOrderCh     chan OrderEvent     `addr:"registerorderch"`
 	OrdersFromMasterCh  chan GlobalOrderMap `addr:"ordersfrommasterch"`
@@ -104,6 +104,15 @@ func (mat OrderMatrix) String() string {
 	return strings.Join(s, "")
 }
 
+func (m GlobalOrderMap) String() string {
+	var s []string
+	for name, mat := range m {
+		s = append(s, fmt.Sprintln(name+":"))
+		s = append(s, fmt.Sprint(mat))
+	}
+	return strings.Join(s, "")
+}
+
 func (mat OrderMatrix) OrderOnFloor(floor int) bool {
 	for _, btn := range mat[floor] {
 		if btn {
@@ -111,14 +120,4 @@ func (mat OrderMatrix) OrderOnFloor(floor int) bool {
 		}
 	}
 	return false
-}
-
-func (m GlobalOrderMap) String() string {
-	var s []string
-	for name, mat := range m {
-		// fmt.Printf("teller")
-		s = append(s, fmt.Sprintln(name+":"))
-		s = append(s, fmt.Sprint(mat))
-	}
-	return strings.Join(s, "")
 }

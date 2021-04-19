@@ -2,6 +2,7 @@ package main
 
 import (
 	"./controller_fsm"
+	hw "./hardware_io"
 	"fmt"
 	// "./hardware_io"
 	"./master"
@@ -15,8 +16,13 @@ import (
 
 func main() {
 	var id string
+	var simPort string
 	flag.StringVar(&id, "id", "", "id of this peer")
+	flag.StringVar(&simPort, "simPort", "15657", "id of this peer")
 	flag.Parse()
+
+	var simAddr string = "localhost:" + simPort
+	hw.Init(simAddr, N_FLOORS)
 
 	iAmMasterCh := make(chan bool)
 
