@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"time"
 
 	"./controller_fsm"
@@ -27,6 +28,11 @@ func main() {
 	flag.StringVar(&simPort, "simPort", "15657", "id of this peer")
 	flag.Parse()
 
+	_, err := strconv.Atoi(ID)
+	if err != nil {
+		println("ERROR: ID missing or not integer")
+		return
+	}
 	var simAddr string = "localhost:" + simPort
 	hw.Init(simAddr, N_FLOORS)
 
@@ -84,9 +90,5 @@ func main() {
 
 	for {
 		select {}
-		/*select{
-		case a:= <-updateElevStateChannel:
-			fmt.Println("Got state update: ",a)
-		}*/
 	}
 }

@@ -12,7 +12,6 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 	//Sort all peers, signal if we are lowest id
 	//fmt.Println("peers detrmining", connectedPeers)
 	var peers []int
-	currentlyMaster := id == currentMasterId
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		fmt.Println("Error: This elevator id is not a int, reboot with proper integer id")
@@ -23,11 +22,12 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 		peers = append(peers, pInt)
 	}
 	sort.Ints(peers)
-	// fmt.Printf("Elevator %s: Master is elevator %d\n", id, peers[0])
+	fmt.Println("Sorted peers: ", peers)
+	fmt.Printf("Elevator %s: Master is elevator %d\n", id, peers[0])
 
-	if peers[0] == idInt && !currentlyMaster {
+	if peers[0] == idInt {
 		isMaster <- true
-	} else if peers[0] != idInt && currentlyMaster {
+	} else {
 		//fmt.Println("Removed as master")
 		isMaster <- false
 	}
