@@ -40,7 +40,6 @@ func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan typ
 }
 
 func runUDPServer(id string, tcpPort int, isMasterUpdate <-chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
-	peerTxEnable := make(chan bool)
-	go peers.Transmitter(15647, id, tcpPort, isMasterUpdate, peerTxEnable)
+	go peers.Transmitter(15647, id, tcpPort)
 	go peers.Receiver(15647, peerUpdateCh)
 }
