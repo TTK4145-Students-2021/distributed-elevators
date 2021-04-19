@@ -10,7 +10,6 @@ import (
 	// "./test"
 	"flag"
 	"fmt"
-	"time"
 
 	"./network/network"
 )
@@ -36,7 +35,7 @@ func main() {
 	// doneOrder := make(chan OrderEvent)
 
 	orderMergeCh := make(chan GlobalOrderMap)
-	time.Sleep(time.Second)
+	//time.Sleep(time.Second)
 
 	fmt.Println("### Starting Elevator ###")
 	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, networkSendCh, completedOrder)

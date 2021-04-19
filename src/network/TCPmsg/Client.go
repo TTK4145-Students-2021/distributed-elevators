@@ -67,6 +67,7 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			case types.Master:
 				for _, p := range connectedPeers {
 					if p.peer.IsMaster {
+						//Send messages to yourself locally, not through tcp
 						if p.peer.Id != id {
 							p.msgChannel <- req
 						} else {

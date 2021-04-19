@@ -3,9 +3,11 @@ package master
 import (
 	"encoding/json"
 	"fmt"
+
 	// "io/ioutil"
-	. "../types"
 	"os/exec"
+
+	. "../types"
 	// "github.com/davecgh/go-spew/spew"
 )
 
@@ -88,10 +90,10 @@ func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateE
 			}
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			
-			netMsg := NetworkMessage{Data:updatedOrders,
-				Receipient:All,
-			ChAddr:"globalordersch"}
+
+			netMsg := NetworkMessage{Data: updatedOrders,
+				Receipient: All,
+				ChAddr:     "globalordersch"}
 			globalUpdatedOrders <- netMsg
 
 		case iAmMaster := <-iAmMasterCh:
