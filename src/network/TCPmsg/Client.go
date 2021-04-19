@@ -102,10 +102,14 @@ func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers
 	for {
 		message := <-msg
 		bytes, _ := json.Marshal(message)
-		_, _ = conn.Write(bytes)
-		_, err = conn.Write([]byte("\n"))
+		_, err = conn.Write(bytes)
+		_, err2 := conn.Write([]byte("\n"))
 		if err != nil {
-			println("Write to server failed:", err.Error())
+			println("TCP Write to server failed:", err.Error())
+			return
+		}
+		if err2 != nil {
+			println("TCP Write to server failed:", err2.Error())
 			return
 		}
 
