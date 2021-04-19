@@ -13,7 +13,10 @@ func DetermineIfMaster(id string, connectedPeers []peers.Peer, isMaster chan<- b
 	fmt.Println("peers detrmining", connectedPeers)
 	var currentlyMaster bool
 	var peers []int
-	idInt, _ := strconv.Atoi(id)
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		fmt.Println("Error: This elevator id is not a int, reboot with proper integer id")
+	}
 	//peers := make([]string, len(connectedPeers))
 	fmt.Println("Created peers: ", peers)
 	for _, p := range connectedPeers {

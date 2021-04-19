@@ -20,12 +20,12 @@ func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannel
 	tcpPort := 8080
 	//tcpMsgCh := make(chan types.NetworkMessage, 200)
 
-	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort)
+	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort, isMasterUpdate)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
 
 }
 
-func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
+func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int, isMaster chan<- bool) int {
 
 	portCh := make(chan int, 1)
 
@@ -35,11 +35,11 @@ func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan typ
 	fmt.Println("Port ", tcpPort)
 
 	// Start TCP Client handler
-	go TCPmsg.ClientHandler(id, rxCh, tcpMsgCh, peerUpdateCh)
+	go TCPmsg.ClientHandler(id, rxCh, tcpMsgCh, peerUpdateCh, isMaster)
 	return tcpPort
 }
 
-func runUDPServer(id string, tcpPort int, isMasterUpdate chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
+func runUDPServer(id string, tcpPort int, isMasterUpdate <-chan bool, peerUpdateCh chan<- peers.PeerUpdate) {
 	peerTxEnable := make(chan bool)
 	go peers.Transmitter(15647, id, tcpPort, isMasterUpdate, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
