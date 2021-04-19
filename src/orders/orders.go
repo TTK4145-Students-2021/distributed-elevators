@@ -1,8 +1,6 @@
 package orders
 
 import (
-	"fmt"
-
 	"../hardware_io"
 	. "../types"
 )
