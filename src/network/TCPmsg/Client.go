@@ -14,9 +14,7 @@ type peerConnection struct {
 	msgChannel chan Request
 }
 
-
-
-func ClientHandler(networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate) {
+func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
 	for {
@@ -59,12 +57,21 @@ func ClientHandler(networkMessage <-chan types.NetworkMessage, pCh <-chan peers.
 			switch message.Receipient {
 			case types.All:
 				for _, p := range connectedPeers {
-					p.msgChannel <- req
+					//Send messages to yourself locally, not through tcp
+					if p.peer.Id != id {
+						p.msgChannel <- req
+					} else {
+						HandleMessage(req, rxChannels)
+					}
 				}
 			case types.Master:
 				for _, p := range connectedPeers {
 					if p.peer.IsMaster {
-						p.msgChannel <- req
+						if p.peer.Id != id {
+							p.msgChannel <- req
+						} else {
+							HandleMessage(req, rxChannels)
+						}
 					}
 				}
 			}

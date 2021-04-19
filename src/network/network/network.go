@@ -4,9 +4,9 @@ import (
 	"fmt"
 	//"time"
 
+	"../../types"
 	"../TCPmsg"
 	"../peers"
-	"../../types"
 )
 
 type HelloMsg struct {
@@ -16,29 +16,26 @@ type HelloMsg struct {
 
 func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels, isMasterUpdate chan bool) {
 
-	
-
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	tcpPort := 8080
 	//tcpMsgCh := make(chan types.NetworkMessage, 200)
 
-	tcpPort = runTCPServerAndClient(rxChannels, networkSendCh, peerUpdateCh, tcpPort)
+	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
 
 }
 
-func runTCPServerAndClient(rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
+func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int) int {
 
 	portCh := make(chan int, 1)
-	server := TCPmsg.NewServer(rxCh)
 
 	//Spawn TCP listen client handler, get assigned port
-	go server.ListenAndServe(tcpPort, portCh)
+	go TCPmsg.ListenAndServe(tcpPort, portCh, rxCh)
 	tcpPort = <-portCh
 	fmt.Println("Port ", tcpPort)
 
 	// Start TCP Client handler
-	go TCPmsg.ClientHandler(tcpMsgCh, peerUpdateCh)
+	go TCPmsg.ClientHandler(id, rxCh, tcpMsgCh, peerUpdateCh)
 	return tcpPort
 }
 

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"reflect"
+
 	"../../types"
 )
 
@@ -20,12 +21,6 @@ type HelloMsg struct {
 	Iter    int
 }
 
-type Server struct {
-	rxChannels types.RXChannels
-	Reader     *bufio.Reader
-	Encoder    *json.Encoder
-}
-
 type Request struct {
 	ChannelAdress string `json:"mAdd"`
 	ElevatorId    string `json:"reqId"`
@@ -37,14 +32,7 @@ type Message struct {
 	Data       []byte
 }
 
-func NewServer(rxChs types.RXChannels) *Server {
-	server := Server{
-		rxChannels: rxChs,
-	}
-	return &server
-}
-
-func (s Server) ListenAndServe(port int, portCh chan<- int) {
+func ListenAndServe(port int, portCh chan<- int, rxChannels types.RXChannels) {
 
 	allClients := make(map[net.Conn]string) //map of all clients keyed on their connection
 	newConnections := make(chan net.Conn)   //channel for incoming connections
@@ -65,7 +53,7 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 			break
 		}
 	}
-	log.Printf("TCP Server listening on %s\n", port)
+	log.Printf("TCP Server listening on %d\n", port)
 
 	go acceptConnections(server, newConnections)
 
@@ -80,7 +68,7 @@ func (s Server) ListenAndServe(port int, portCh chan<- int) {
 			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
-			go s.HandleMessage(message)
+			go HandleMessage(message, rxChannels)
 		}
 	}
 
@@ -108,13 +96,21 @@ func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
 	deadConnections <- conn
 }
 
-func (server Server) HandleMessage(msg Message) {
+func HandleMessage(msg interface{}, rxChannels types.RXChannels) {
 	request := Request{}
-	if err := json.Unmarshal(msg.Data, &request); err != nil {
-		fmt.Println("Error decoding JSON:" + err.Error())
+	switch msg := msg.(type) {
+	case Message:
+		if err := json.Unmarshal(msg.Data, &request); err != nil {
+			fmt.Println("Error decoding JSON:" + err.Error())
+		}
+	case Request:
+		request = msg
+	default:
+		fmt.Printf("TCP Server cant handle message type %T", msg)
 	}
-	w := reflect.TypeOf(server.rxChannels)
-	x := reflect.ValueOf(server.rxChannels)
+
+	w := reflect.TypeOf(rxChannels)
+	x := reflect.ValueOf(rxChannels)
 
 	for i := 0; i < w.NumField(); i++ {
 		ch := w.Field(i)

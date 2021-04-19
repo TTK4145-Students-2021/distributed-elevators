@@ -6,9 +6,12 @@ import (
 	"./master"
 	"./orders"
 	. "./types"
+
 	// "./test"
-	"fmt"
 	"flag"
+	"fmt"
+	"time"
+
 	"./network/network"
 )
 
@@ -18,24 +21,22 @@ func main() {
 	flag.Parse()
 
 	iAmMasterCh := make(chan bool)
-	
+
 	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
 	updateElevStateChannel := make(chan State, 200)
 	RXChannels := RXChannels{StateCh: updateElevStateChannel,
-	GlobalOrdersCh: globalUpdatedOrdersChannel}
+		GlobalOrdersCh: globalUpdatedOrdersChannel}
 	networkSendCh := make(chan NetworkMessage, 200)
 	network.InitNetwork(id, networkSendCh, RXChannels, iAmMasterCh)
-	
 
 	localUpdatedOrders := make(chan OrderMatrix)
 	localUpdatedLights := make(chan OrderMatrix)
 	registerOrder := make(chan OrderEvent, 200)
 	completedOrder := make(chan int, 200)
 	// doneOrder := make(chan OrderEvent)
-	
 
 	orderMergeCh := make(chan GlobalOrderMap)
-	
+	time.Sleep(time.Second)
 
 	fmt.Println("### Starting Elevator ###")
 	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, networkSendCh, completedOrder)
@@ -44,10 +45,10 @@ func main() {
 	iAmMasterCh <- true
 
 	for {
-		select{}
+		select {}
 		/*select{
-	case a:= <-updateElevStateChannel:
-		fmt.Println("Got state update: ",a)
-	}*/
-}
+		case a:= <-updateElevStateChannel:
+			fmt.Println("Got state update: ",a)
+		}*/
+	}
 }
