@@ -2,14 +2,15 @@ package main
 
 import (
 	"./controller_fsm"
+	"fmt"
 	// "./hardware_io"
 	"./master"
+	// "./network"
 	"./orders"
 	. "./types"
 	// "./test"
-	"fmt"
-	"flag"
 	"./network/network"
+	"flag"
 )
 
 func main() {
@@ -18,36 +19,57 @@ func main() {
 	flag.Parse()
 
 	iAmMasterCh := make(chan bool)
-	
-	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
-	updateElevStateChannel := make(chan State, 200)
-	RXChannels := RXChannels{StateCh: updateElevStateChannel,
-	GlobalOrdersCh: globalUpdatedOrdersChannel}
+
+	stateUpdateCh := make(chan State, 200)
+	registerOrderCh := make(chan OrderEvent, 200)
+	orderCopyRequestCh := make(chan bool)
+
+	ordersFromMasterCh := make(chan GlobalOrderMap)
+	orderCopyResponseCh := make(chan GlobalOrderMap)
+
+	RXChannels :=
+		RXChannels{
+			StateUpdateCh:       stateUpdateCh,
+			RegisterOrderCh:     registerOrderCh,
+			OrdersFromMasterCh:  ordersFromMasterCh,
+			OrderCopyRequestCh:  orderCopyRequestCh,
+			OrderCopyResponseCh: orderCopyResponseCh,
+		}
+
 	networkSendCh := make(chan NetworkMessage, 200)
 	network.InitNetwork(id, networkSendCh, RXChannels, iAmMasterCh)
-	
 
-	localUpdatedOrders := make(chan OrderMatrix)
-	localUpdatedLights := make(chan OrderMatrix)
-	registerOrder := make(chan OrderEvent, 200)
-	completedOrder := make(chan int, 200)
-	// doneOrder := make(chan OrderEvent)
-	
-
-	orderMergeCh := make(chan GlobalOrderMap)
-	
+	//internal
+	localOrderCh := make(chan OrderMatrix)
+	localLightCh := make(chan OrderMatrix)
+	clearedFloorCh := make(chan int, 200)
 
 	fmt.Println("### Starting Elevator ###")
-	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, networkSendCh, completedOrder)
-	go orders.StartOrderModule(localUpdatedOrders, localUpdatedLights, registerOrder, globalUpdatedOrdersChannel, completedOrder, orderMergeCh)
-	go master.ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevStateChannel, networkSendCh, orderMergeCh) //make a struct for channels
+	go controller_fsm.StartElevatorController(
+		localOrderCh,
+		localLightCh,
+		clearedFloorCh,
+		networkSendCh)
+	go orders.StartOrderModule(
+		localOrderCh,
+		localLightCh,
+		clearedFloorCh,
+		networkSendCh,
+		ordersFromMasterCh,
+		orderCopyRequestCh)
+	go master.RunMaster(
+		iAmMasterCh,
+		registerOrderCh,
+		stateUpdateCh,
+		networkSendCh,
+		orderCopyResponseCh) //make a struct for channels
 	iAmMasterCh <- true
 
 	for {
-		select{}
+		select {}
 		/*select{
-	case a:= <-updateElevStateChannel:
-		fmt.Println("Got state update: ",a)
-	}*/
-}
+		case a:= <-updateElevStateChannel:
+			fmt.Println("Got state update: ",a)
+		}*/
+	}
 }

@@ -65,15 +65,20 @@ const (
 	All Receipient = iota
 	Master
 )
+
 type NetworkMessage struct {
 	Data       interface{}
 	Receipient Receipient
-	ChAddr      string
+	ChAddr     string
 }
 type RXChannels struct {
-	StateCh chan State `addr:"statech"`
-	GlobalOrdersCh chan GlobalOrderMap `addr:"globalordersch"`
+	StateUpdateCh       chan State          `addr:"stateupdatech"`
+	RegisterOrderCh     chan OrderEvent     `addr:"registerorderch"`
+	OrdersFromMasterCh  chan GlobalOrderMap `addr:"ordersfrommasterch"`
+	OrderCopyRequestCh  chan bool           `addr:"ordercopyrequestch"`
+	OrderCopyResponseCh chan GlobalOrderMap `addr:"ordercopyresponsech"`
 }
+
 /* #### Basic member functions #### */
 
 func (d Dir) String() string {

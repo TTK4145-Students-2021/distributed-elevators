@@ -25,35 +25,40 @@ type SingleElevator struct {
 
 /* channels */
 
-func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- NetworkMessage, orderMergeCh <-chan GlobalOrderMap) {
-	for {
-		select {
-		case <-iAmMasterCh:
-			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh)
-			return
-		}
-	}
-}
+// func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap, requestClientOrderCopy chan<- bool) {
+// 	for {
+// 		select {
+// 		case <-iAmMasterCh:
+// 			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh, requestClientOrderCopy)
+// 			return
+// 		}
+// 	}
+// }
 
-func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- NetworkMessage, orderMergeCh <-chan GlobalOrderMap) {
+func RunMaster(
+	iAmMasterCh <-chan bool,
+	registerOrderCh <-chan OrderEvent,
+	stateUpdateCh <-chan State,
+	toSlavesCh chan<- NetworkMessage,
+	orderCopyResponseCh <-chan GlobalOrderMap,
+) {
 	println("## Running Master ##")
 
 	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
 	allElevatorStates := map[string]SingleElevator{}
 
 	/* REQUEST ALL ORDER LIST FROM PEERS HERE*/
+	requestOrderCopy := NetworkMessage{
+		Data:       true,
+		Receipient: All,
+		ChAddr:     "ordercopyrequest",
+	}
+
+	toSlavesCh <- requestOrderCopy
 
 	for {
 		select {
-		/*
-
-			<- OR global map
-				*when master is initiated, it will request the other peers for their copy
-				of the global map and OR them together.
-				OR'ing will happen here.
-		*/
-
-		case st := <-updateElevState:
+		case st := <-stateUpdateCh:
 			println("M: Got State. ID: ", st.ID)
 			elevator, exist := allElevatorStates[st.ID]
 
@@ -68,7 +73,7 @@ func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateE
 				st.Available,
 				CabOrders}
 
-		case order := <-registerOrder:
+		case order := <-registerOrderCh:
 			//debug
 			a := map[bool]string{false: "new", true: "completed"}
 			println("M: master got", a[order.Completed])
@@ -87,21 +92,68 @@ func RunMaster(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateE
 				allElevatorStates[id] = elev
 			}
 
-			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			
-			netMsg := NetworkMessage{Data:updatedOrders,
-				Receipient:All,
-			ChAddr:"globalordersch"}
-			globalUpdatedOrders <- netMsg
+			orderList := reAssignOrders(hallOrders, allElevatorStates)
+			updatedOrders := NetworkMessage{
+				Data:       orderList,
+				Receipient: All,
+				ChAddr:     "ordersfrommasterch"}
+			toSlavesCh <- updatedOrders
 
 		case iAmMaster := <-iAmMasterCh:
 			if iAmMaster {
-				//REQUEST ORDER LIST FROM PEERS
+				toSlavesCh <- requestOrderCopy
 			} else {
-				go ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh)
-				return
+			sleep:
+				for {
+					select {
+					case iAmMaster := <-iAmMasterCh:
+						if iAmMaster {
+							toSlavesCh <- requestOrderCopy
+							break sleep
+						}
+					}
+				}
 			}
 
+		case orderCopy := <-orderCopyResponseCh: //rename to mergeResponse?
+			/*
+				<- OR global map
+					*when master is initiated, it will request the other peers for their copy
+					of the global map and OR them together.
+					OR'ing will happen here.
+			*/
+			fmt.Println("M: got order copy response ")
+			for elevID, orderMatrix := range orderCopy {
+				for f, row := range orderMatrix {
+					for b, isOrder := range row {
+						switch ButtonType(b) {
+						case BT_HallUp, BT_HallDown:
+							hallOrders[f][b] = hallOrders[f][b] || isOrder
+						case BT_Cab:
+							elevator, exist := allElevatorStates[elevID]
+							if !exist {
+								cabOrders := [N_FLOORS]bool{}
+								cabOrders[f] = isOrder
+								allElevatorStates[elevID] = SingleElevator{
+									"idle",
+									0,
+									"down",
+									true,
+									cabOrders}
+							} else {
+								elevator.CabOrders[f] = elevator.CabOrders[f] || isOrder
+								allElevatorStates[elevID] = elevator
+							}
+						}
+					}
+				}
+			}
+			orderList := reAssignOrders(hallOrders, allElevatorStates)
+			updatedOrders := NetworkMessage{
+				Data:       orderList,
+				Receipient: All,
+				ChAddr:     "ordersfrommasterch"}
+			toSlavesCh <- updatedOrders
 		}
 	}
 }
@@ -118,7 +170,7 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 		}
 	}
 	// if len(inputmap) == 0 {
-	// 	//TODO: HANDLE WHEN INPUTMAP EMPTY
+	// 	// HANDLES WHEN INPUTMAP EMPTY -> makes it so orders are assigned
 	// 	fmt.Println("M: Shiii, we got an empty inputmap in reAssignOrders") //remove
 	// 	inputmap = allElevatorStates
 	// 	unavailable = nil

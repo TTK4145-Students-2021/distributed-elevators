@@ -5,8 +5,22 @@ import (
 	. "../types"
 )
 
-func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int, orderMergeCh chan<- GlobalOrderMap) {
-	globalOrderMap := GlobalOrderMap{}
+func StartOrderModule(
+	localOrderCh chan<- OrderMatrix,
+	localLightCh chan<- OrderMatrix,
+	clearedFloor <-chan int,
+	toMaster chan<- NetworkMessage,
+	ordersFromMaster <-chan GlobalOrderMap,
+	orderCopyRequest <-chan bool,
+) {
+
+	// testMat := OrderMatrix{}
+	// // testMat[1][1] = true
+	// // testMat[2][1] = true
+	// // testMat[3][2] = true
+
+	orderList := make(GlobalOrderMap)
+	// globalOrderMap[ID] = testMat
 
 	keyPress := make(chan ButtonEvent)
 	go hardware_io.PollButtons(keyPress)
@@ -15,45 +29,61 @@ func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights 
 		select {
 
 		case button := <-keyPress:
-			/* simple case used for testing new orders direct with FSM*/
-
 			newOrder := OrderEvent{
 				ElevID:    ID,
 				Completed: false,
 				Order:     button}
 
-			registerOrder <- newOrder
+			registerNewOrder := NetworkMessage{
+				Data:       newOrder,
+				Receipient: Master,
+				ChAddr:     "registerorderch"}
 
-		case floor := <-completedOrder:
+			toMaster <- registerNewOrder
 
-			for i := 0; i < N_BUTTONS; i++ {
+		case floor := <-clearedFloor:
+			for btn := 0; btn < N_BUTTONS; btn++ {
 
-				order := ButtonEvent{
+				button := ButtonEvent{
 					Floor:  floor,
-					Button: ButtonType(i),
+					Button: ButtonType(btn),
 				}
 
-				completed := OrderEvent{
+				completedOrder := OrderEvent{
 					ElevID:    ID,
 					Completed: true,
-					Order:     order}
-				registerOrder <- completed
+					Order:     button}
+
+				registerCompletedOrder := NetworkMessage{
+					Data:       completedOrder,
+					Receipient: Master,
+					ChAddr:     "registerorderch"}
+
+				toMaster <- registerCompletedOrder
 			}
 			println("exiting completed")
 
-		case globalOrderMap = <-globalUpdatedOrders:
-			localOrderMat := globalOrderMap[ID]
-			localUpdatedOrders <- localOrderMat
+		case orderList = <-ordersFromMaster:
+			localOrders := orderList[ID]
+			localOrderCh <- localOrders
 
-			var localLightsMat OrderMatrix = localOrderMat
-			for _, orderMat := range globalOrderMap {
-				for i := 0; i < N_FLOORS; i++ {
-					for j := 0; j < N_BUTTONS-1; j++ {
-						localLightsMat[i][j] = localOrderMat[i][j] || orderMat[i][j]
+			localLights := localOrders
+			for _, orders := range orderList {
+				for f := 0; f < N_FLOORS; f++ {
+					for b := 0; b < N_BUTTONS-1; b++ {
+						localLights[f][b] = localOrders[f][b] || orders[f][b]
 					}
 				}
 			}
-			localUpdatedLights <- localLightsMat
+			localLightCh <- localLights
+
+		case <-orderCopyRequest:
+			orderCopy := NetworkMessage{
+				Data:       orderList,
+				Receipient: Master,
+				ChAddr:     "ordercopyresponsech",
+			}
+			toMaster <- orderCopy
 		}
 	}
 }

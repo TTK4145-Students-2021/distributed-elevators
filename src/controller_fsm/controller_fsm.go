@@ -6,7 +6,6 @@ import (
 
 	hw "../hardware_io"
 	. "../types"
-	
 )
 
 type Elevator struct {
@@ -25,10 +24,16 @@ Orders // Lights
 
 /* ISSUES
 - What happens if elevator box power turned off ?
--
+- Add periodically send state to Master
 */
 
-func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- NetworkMessage, completedOrder chan<- int) {
+func StartElevatorController(
+	orderUpdateCh <-chan OrderMatrix,
+	lightUpdateCh <-chan OrderMatrix,
+	clearedFloorCh chan<- int,
+	toMasterCh chan<- NetworkMessage,
+) {
+
 	println("# Starting Controller FSM #")
 	hw.Init("localhost:15657", N_FLOORS)
 
@@ -45,10 +50,10 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	e := Elevator{
 		State: State{
 			ID:        ID,
-			Behavior:  BH_Idle,
-			Floor:     -1,
+			Behavior:  BH_Moving,
+			Floor:     0,
 			Direction: DIR_Down,
-			Available: true},
+			Available: false},
 		orders: OrderMatrix{},
 		lights: OrderMatrix{},
 	}
@@ -94,11 +99,12 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				errorTimeout.Reset(5 * time.Second)
 			}
 			e.State.Available = true
-			updateState := e.State
-			NetMsg := NetworkMessage{Data:updateState,
-				Receipient:Master,
-			ChAddr:"statech"}
-			updateElevState <- NetMsg
+
+			updateState := NetworkMessage{
+				Data:       e.State,
+				Receipient: Master,
+				ChAddr:     "stateupdatech"}
+			toMasterCh <- updateState
 
 		case <-door_open:
 			println("FSM: Door Open")
@@ -106,7 +112,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			hw.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
 			errorTimeout.Stop()
-			completedOrder <- e.State.Floor
+			clearedFloorCh <- e.State.Floor
 
 		case <-doorClose.C:
 			println("FSM: Door Closing")
@@ -122,10 +128,8 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 				errorTimeout.Reset(5 * time.Second)
 			}
-		case orderMat := <-localUpdatedOrders:
+		case orderMat := <-orderUpdateCh:
 			e.orders = orderMat
-			// fmt.Println("FSM: got order")
-			// fmt.Println(orderMat)
 			if e.ordersEmpty() {
 				break
 			}
@@ -150,7 +154,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				}
 			}
 
-		case lightMat := <-localUpdatedLights:
+		case lightMat := <-lightUpdateCh:
 			for floor, arr := range lightMat {
 				for btn, setLamp := range arr {
 					hw.SetButtonLamp(ButtonType(btn), floor, setLamp)
@@ -162,11 +166,11 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			/* Case where elevator gets stuck */
 			fmt.Println("FMS: FATAL ERROR - Motor Timout triggered, elevator stuck?")
 			e.State.Available = false
-			updateState := e.State
-			NetMsg := NetworkMessage{Data:updateState,
-				Receipient:Master,
-			ChAddr:"statech"}
-			updateElevState <- NetMsg
+			updateState := NetworkMessage{
+				Data:       e.State,
+				Receipient: Master,
+				ChAddr:     "stateupdatech"}
+			toMasterCh <- updateState
 
 		case <-stopSensorCh:
 			hw.SetMotorDirection(hw.MD_Stop)
@@ -257,9 +261,9 @@ func (e Elevator) ordersAbove() bool {
 }
 
 func (e Elevator) ordersBelow() bool {
-	for floor := 0; floor < e.State.Floor; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.orders[floor][btn] {
+	for f := 0; f < e.State.Floor; f++ {
+		for b := 0; b < N_BUTTONS; b++ {
+			if e.orders[f][b] {
 				return true
 			}
 		}
