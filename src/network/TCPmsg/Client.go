@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"../../types"
+	"../masterselect"
 	"../peers"
 )
 
@@ -14,7 +15,7 @@ type peerConnection struct {
 	msgChannel chan Request
 }
 
-func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate) {
+func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate, isMaster chan<- bool) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
 	for {
@@ -26,6 +27,10 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			conPeersArray := make([]peers.Peer, 0)
 			for _, p := range connectedPeers {
 				conPeersArray = append(conPeersArray, p.peer)
+			}
+			//Determine if we are master, or should stop being master
+			if len(conPeersArray) != 0 {
+				go masterselect.DetermineIfMaster(id, conPeersArray, isMaster)
 			}
 
 			//Find new and lost peers compared to last iteration

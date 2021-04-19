@@ -21,12 +21,14 @@ func main() {
 
 	iAmMasterCh := make(chan bool)
 
+	isMasterCh := make(chan bool) //Seperate master channels for testing
+
 	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
 	updateElevStateChannel := make(chan State, 200)
 	RXChannels := RXChannels{StateCh: updateElevStateChannel,
 		GlobalOrdersCh: globalUpdatedOrdersChannel}
 	networkSendCh := make(chan NetworkMessage, 200)
-	network.InitNetwork(id, networkSendCh, RXChannels, iAmMasterCh)
+	network.InitNetwork(id, networkSendCh, RXChannels, isMasterCh)
 
 	localUpdatedOrders := make(chan OrderMatrix)
 	localUpdatedLights := make(chan OrderMatrix)
