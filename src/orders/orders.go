@@ -5,8 +5,15 @@ import (
 	. "../types"
 )
 
-func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int, orderMergeCh chan<- GlobalOrderMap) {
-	globalOrderMap := GlobalOrderMap{}
+func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights chan<- OrderMatrix, registerOrder chan<- OrderEvent, globalUpdatedOrders <-chan GlobalOrderMap, completedOrder <-chan int, orderMergeCh chan<- GlobalOrderMap, requestClientOrderCopy <-chan bool) {
+
+	// testMat := OrderMatrix{}
+	// // testMat[1][1] = true
+	// // testMat[2][1] = true
+	// // testMat[3][2] = true
+
+	globalOrderMap := make(GlobalOrderMap)
+	// globalOrderMap[ID] = testMat
 
 	keyPress := make(chan ButtonEvent)
 	go hardware_io.PollButtons(keyPress)
@@ -54,6 +61,9 @@ func StartOrderModule(localUpdatedOrders chan<- OrderMatrix, localUpdatedLights 
 				}
 			}
 			localUpdatedLights <- localLightsMat
+
+		case <-requestClientOrderCopy:
+			orderMergeCh <- globalOrderMap
 		}
 	}
 }

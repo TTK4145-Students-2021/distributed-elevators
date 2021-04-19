@@ -24,7 +24,7 @@ Orders // Lights
 
 /* ISSUES
 - What happens if elevator box power turned off ?
--
+- Add periodically send state to Master
 */
 
 func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- State, completedOrder chan<- int) {
@@ -44,10 +44,10 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	e := Elevator{
 		State: State{
 			ID:        ID,
-			Behavior:  BH_Idle,
-			Floor:     -1,
+			Behavior:  BH_Moving,
+			Floor:     0,
 			Direction: DIR_Down,
-			Available: true},
+			Available: false},
 		orders: OrderMatrix{},
 		lights: OrderMatrix{},
 	}
