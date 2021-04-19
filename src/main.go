@@ -1,49 +1,86 @@
 package main
 
 import (
+	"time"
+
 	"./controller_fsm"
+	hw "./hardware_io"
+
 	// "./hardware_io"
 	"./master"
+	// "./network"
 	"./orders"
 	. "./types"
 
 	// "./test"
-	"flag"
 	"fmt"
+
+	"flag"
 
 	"./network/network"
 )
 
 func main() {
-	var id string
-	flag.StringVar(&id, "id", "", "id of this peer")
+	var ID string
+	var simPort string
+	flag.StringVar(&ID, "id", "", "id of this peer")
+	flag.StringVar(&simPort, "simPort", "15657", "id of this peer")
 	flag.Parse()
 
-	iAmMasterCh := make(chan bool)
+	var simAddr string = "localhost:" + simPort
+	hw.Init(simAddr, N_FLOORS)
 
+	// iAmMasterCh := make(chan bool)
 	isMasterCh := make(chan bool) //Seperate master channels for testing
 
-	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
-	updateElevStateChannel := make(chan State, 200)
-	RXChannels := RXChannels{StateCh: updateElevStateChannel,
-		GlobalOrdersCh: globalUpdatedOrdersChannel}
+	stateUpdateCh := make(chan State, 200)
+	registerOrderCh := make(chan OrderEvent, 200)
+	orderCopyRequestCh := make(chan bool)
+
+	ordersFromMasterCh := make(chan GlobalOrderMap)
+	orderCopyResponseCh := make(chan GlobalOrderMap)
+
+	RXChannels :=
+		RXChannels{
+			StateUpdateCh:       stateUpdateCh,
+			RegisterOrderCh:     registerOrderCh,
+			OrdersFromMasterCh:  ordersFromMasterCh,
+			OrderCopyRequestCh:  orderCopyRequestCh,
+			OrderCopyResponseCh: orderCopyResponseCh,
+		}
+
 	networkSendCh := make(chan NetworkMessage, 200)
-	network.InitNetwork(id, networkSendCh, RXChannels, isMasterCh)
-
-	localUpdatedOrders := make(chan OrderMatrix)
-	localUpdatedLights := make(chan OrderMatrix)
-	registerOrder := make(chan OrderEvent, 200)
-	completedOrder := make(chan int, 200)
-	// doneOrder := make(chan OrderEvent)
-
-	orderMergeCh := make(chan GlobalOrderMap)
-	//time.Sleep(time.Second)
+	network.InitNetwork(ID, networkSendCh, RXChannels, isMasterCh)
+	//internal
+	localOrderCh := make(chan OrderMatrix)
+	localLightCh := make(chan OrderMatrix)
+	clearedFloorCh := make(chan int, 200)
 
 	fmt.Println("### Starting Elevator ###")
-	go controller_fsm.StartElevatorController(localUpdatedOrders, localUpdatedLights, networkSendCh, completedOrder)
-	go orders.StartOrderModule(localUpdatedOrders, localUpdatedLights, registerOrder, globalUpdatedOrdersChannel, completedOrder, orderMergeCh)
-	go master.ListenForMasterUpdate(iAmMasterCh, registerOrder, updateElevStateChannel, networkSendCh, orderMergeCh) //make a struct for channels
-	iAmMasterCh <- true
+	go master.RunMaster(
+		ID,
+		isMasterCh,
+		registerOrderCh,
+		stateUpdateCh,
+		networkSendCh,
+		orderCopyResponseCh) //make a struct for channels
+	time.Sleep(1 * time.Second)
+
+	go controller_fsm.StartElevatorController(
+		ID,
+		localOrderCh,
+		localLightCh,
+		clearedFloorCh,
+		networkSendCh,
+	)
+	go orders.StartOrderModule(
+		ID,
+		localOrderCh,
+		localLightCh,
+		clearedFloorCh,
+		networkSendCh,
+		ordersFromMasterCh,
+		orderCopyRequestCh)
 
 	for {
 		select {}

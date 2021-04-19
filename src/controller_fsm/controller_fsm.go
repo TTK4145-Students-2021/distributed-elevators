@@ -6,7 +6,6 @@ import (
 
 	hw "../hardware_io"
 	. "../types"
-	
 )
 
 type Elevator struct {
@@ -25,17 +24,22 @@ Orders // Lights
 
 /* ISSUES
 - What happens if elevator box power turned off ?
--
+- Add periodically send state to Master
 */
 
-func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdatedLights <-chan OrderMatrix, updateElevState chan<- NetworkMessage, completedOrder chan<- int) {
-	println("# Starting Controller FSM #")
-	hw.Init("localhost:15657", N_FLOORS)
+func StartElevatorController(
+	ID string,
+	orderUpdateCh <-chan OrderMatrix,
+	lightUpdateCh <-chan OrderMatrix,
+	clearedFloorCh chan<- int,
+	toMasterCh chan<- NetworkMessage,
+) {
 
+	println("# Starting Controller FSM #")
 	/* init channels */
 	floorSensorCh := make(chan int)
 	stopSensorCh := make(chan bool)
-	door_open := make(chan bool, 5)
+	door_open := make(chan bool, 200)
 
 	/* init goroutines */
 	go hw.PollFloorSensor(floorSensorCh)
@@ -45,10 +49,10 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	e := Elevator{
 		State: State{
 			ID:        ID,
-			Behavior:  BH_Idle,
-			Floor:     -1,
+			Behavior:  BH_Moving,
+			Floor:     0,
 			Direction: DIR_Down,
-			Available: true},
+			Available: false},
 		orders: OrderMatrix{},
 		lights: OrderMatrix{},
 	}
@@ -57,6 +61,7 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 	doorClose.Stop()
 	hw.SetMotorDirection(hw.MD_Down)
 	errorTimeout := time.NewTimer(5 * time.Second)
+	sendState := time.NewTimer(1 * time.Second)
 
 	for {
 		select {
@@ -94,19 +99,21 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				errorTimeout.Reset(5 * time.Second)
 			}
 			e.State.Available = true
-			updateState := e.State
-			NetMsg := NetworkMessage{Data:updateState,
-				Receipient:Master,
-			ChAddr:"statech"}
-			updateElevState <- NetMsg
+
+			updateState := NetworkMessage{
+				Data:       e.State,
+				Receipient: Master,
+				ChAddr:     "stateupdatech"}
+			toMasterCh <- updateState
 
 		case <-door_open:
 			println("FSM: Door Open")
+			e.State.Behavior = BH_DoorOpen
 			hw.SetMotorDirection(hw.MD_Stop)
 			hw.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
 			errorTimeout.Stop()
-			completedOrder <- e.State.Floor
+			clearedFloorCh <- e.State.Floor
 
 		case <-doorClose.C:
 			println("FSM: Door Closing")
@@ -122,10 +129,8 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 				errorTimeout.Reset(5 * time.Second)
 			}
-		case orderMat := <-localUpdatedOrders:
+		case orderMat := <-orderUpdateCh:
 			e.orders = orderMat
-			// fmt.Println("FSM: got order")
-			// fmt.Println(orderMat)
 			if e.ordersEmpty() {
 				break
 			}
@@ -150,10 +155,10 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 				}
 			}
 
-		case lightMat := <-localUpdatedLights:
-			for floor, arr := range lightMat {
-				for btn, setLamp := range arr {
-					hw.SetButtonLamp(ButtonType(btn), floor, setLamp)
+		case lightMat := <-lightUpdateCh:
+			for f, row := range lightMat {
+				for b, setLamp := range row {
+					hw.SetButtonLamp(ButtonType(b), f, setLamp)
 				}
 			}
 			e.lights = lightMat
@@ -162,11 +167,19 @@ func StartElevatorController(localUpdatedOrders <-chan OrderMatrix, localUpdated
 			/* Case where elevator gets stuck */
 			fmt.Println("FMS: FATAL ERROR - Motor Timout triggered, elevator stuck?")
 			e.State.Available = false
-			updateState := e.State
-			NetMsg := NetworkMessage{Data:updateState,
-				Receipient:Master,
-			ChAddr:"statech"}
-			updateElevState <- NetMsg
+			updateState := NetworkMessage{
+				Data:       e.State,
+				Receipient: Master,
+				ChAddr:     "stateupdatech"}
+			toMasterCh <- updateState
+
+		case <-sendState.C:
+			updateState := NetworkMessage{
+				Data:       e.State,
+				Receipient: Master,
+				ChAddr:     "stateupdatech"}
+			sendState.Reset(1 * time.Second)
+			toMasterCh <- updateState
 
 		case <-stopSensorCh:
 			hw.SetMotorDirection(hw.MD_Stop)
@@ -189,33 +202,11 @@ func (e Elevator) shouldTakeOrder() bool {
 }
 
 /*temp*/
-func clearOrder(e *Elevator) { //REMOVE
-	e.orders[e.State.Floor][BT_HallUp] = false
-	e.orders[e.State.Floor][BT_HallDown] = false
-	e.orders[e.State.Floor][BT_Cab] = false
-}
-func (e Elevator) clearLights() { //REMOVE
-	for btn := 0; btn < N_BUTTONS; btn++ {
-		hw.SetButtonLamp(ButtonType(btn), e.State.Floor, false)
-	}
-}
-
 func (e Elevator) printOrders() { //REMOVE
-	for floor := 0; floor < N_FLOORS; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			println("floor ", floor, "button ", btn, "value ", e.orders[floor][btn])
+	for f := 0; f < N_FLOORS; f++ {
+		for b := 0; b < N_BUTTONS; b++ {
+			println("floor ", f, "button ", b, "value ", e.orders[f][b])
 		}
-	}
-}
-
-func onFloorGetNewBehavior(e Elevator) (Behavior, bool) { //REMOVE
-
-	if e.orders == [N_FLOORS][N_BUTTONS]bool{} {
-		return BH_Idle, false
-	} else if e.shouldTakeOrder() {
-		return BH_DoorOpen, true
-	} else {
-		return BH_Moving, false
 	}
 }
 
@@ -227,7 +218,7 @@ func (e Elevator) chooseDirection() Dir {
 		} else if e.ordersBelow() {
 			return DIR_Down
 		} else {
-			println("FSM: Fatal error")
+			println("FSM: Fatal error, going up")
 		}
 	case DIR_Down:
 		if e.ordersBelow() {
@@ -235,7 +226,7 @@ func (e Elevator) chooseDirection() Dir {
 		} else if e.ordersAbove() {
 			return DIR_Up
 		} else {
-			println("FSM: Fatal error, direction down. Orders above= ", e.ordersAbove())
+			println("FSM: Fatal error, going down")
 		}
 	}
 	return e.State.Direction //MUST REMOVE THIS
@@ -257,21 +248,12 @@ func (e Elevator) ordersAbove() bool {
 }
 
 func (e Elevator) ordersBelow() bool {
-	for floor := 0; floor < e.State.Floor; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.orders[floor][btn] {
+	for f := 0; f < e.State.Floor; f++ {
+		for b := 0; b < N_BUTTONS; b++ {
+			if e.orders[f][b] {
 				return true
 			}
 		}
 	}
 	return false
 }
-
-// func orderOnFloor(mat OrderMatrix, floor int) bool {
-// 	for _, btn := range mat[floor] {
-// 		if btn {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }

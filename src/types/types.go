@@ -8,7 +8,6 @@ import (
 /* Variables */
 const N_FLOORS = 4
 const N_BUTTONS = 3
-const ID = "heis_01"
 
 /* #### Types #### */
 type Behavior int
@@ -42,7 +41,7 @@ type ButtonEvent struct {
 type OrderEvent struct {
 	ElevID    string
 	Completed bool
-	Order     ButtonEvent
+	Orders    []ButtonEvent
 }
 
 type OrderMatrix [N_FLOORS][N_BUTTONS]bool
@@ -65,15 +64,20 @@ const (
 	All Receipient = iota
 	Master
 )
+
 type NetworkMessage struct {
 	Data       interface{}
 	Receipient Receipient
-	ChAddr      string
+	ChAddr     string
 }
-type RXChannels struct {
-	StateCh chan State `addr:"statech"`
-	GlobalOrdersCh chan GlobalOrderMap `addr:"globalordersch"`
+type RXChannels struct { //kan defineres i main??
+	StateUpdateCh       chan State          `addr:"stateupdatech"`
+	RegisterOrderCh     chan OrderEvent     `addr:"registerorderch"`
+	OrdersFromMasterCh  chan GlobalOrderMap `addr:"ordersfrommasterch"`
+	OrderCopyRequestCh  chan bool           `addr:"ordercopyrequestch"`
+	OrderCopyResponseCh chan GlobalOrderMap `addr:"ordercopyresponsech"`
 }
+
 /* #### Basic member functions #### */
 
 func (d Dir) String() string {
@@ -88,13 +92,23 @@ func (b Behavior) String() string {
 
 func (mat OrderMatrix) String() string {
 	var s []string
-	for i := range mat {
-		s = append(s, fmt.Sprintf("f%d: ", i+1))
-		for _, n := range mat[i] {
+	for b := 0; b < N_BUTTONS; b++ {
+		i2s := map[int]string{0: "up", 1: "down", 2: "cab"}
+		s = append(s, fmt.Sprintf(i2s[b]+"\t"))
+		for f := 0; f < N_FLOORS; f++ {
 			b2i := map[bool]int8{false: 0, true: 1}
-			s = append(s, fmt.Sprintf("%d   ", b2i[n]))
+			s = append(s, fmt.Sprintf("%d   ", b2i[mat[f][b]]))
 		}
 		s = append(s, "\n")
+	}
+	return strings.Join(s, "")
+}
+
+func (m GlobalOrderMap) String() string {
+	var s []string
+	for name, mat := range m {
+		s = append(s, fmt.Sprintln(name+":"))
+		s = append(s, fmt.Sprint(mat))
 	}
 	return strings.Join(s, "")
 }
@@ -106,14 +120,4 @@ func (mat OrderMatrix) OrderOnFloor(floor int) bool {
 		}
 	}
 	return false
-}
-
-func (m GlobalOrderMap) String() string {
-	var s []string
-	for name, mat := range m {
-		// fmt.Printf("teller")
-		s = append(s, fmt.Sprintln(name+":"))
-		s = append(s, fmt.Sprint(mat))
-	}
-	return strings.Join(s, "")
 }

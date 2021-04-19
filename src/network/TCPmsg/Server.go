@@ -117,12 +117,13 @@ func HandleMessage(msg interface{}, rxChannels types.RXChannels) {
 		chValue := x.Field(i).Interface()
 		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
-		fmt.Println("TCP: Got type: ", typeName)
+		// fmt.Println("TCP: Got type: ", typeName)
 		if request.ChannelAdress == typeName {
 			v := reflect.New(T)
+			//fmt.Println("Request: ", request)
 			err := json.Unmarshal(request.Data, v.Interface())
 			if err != nil {
-				fmt.Println("Error decoding JSON:" + err.Error())
+				fmt.Println("Error decoding JSON 2:" + err.Error())
 			}
 			reflect.Select([]reflect.SelectCase{{
 				Dir:  reflect.SelectSend,
