@@ -77,7 +77,6 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 			// Removing dead connection
 			for k, v := range lastSeen {
 				if time.Since(v.lastSeen) > timeout {
-					fmt.Println("Lost Peer", lastSeen)
 					updated = true
 					delete(lastSeen, k)
 				}
@@ -93,7 +92,7 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 				sort.Slice(pUpdate.Peers, func(i, j int) bool {
 					return pUpdate.Peers[i].Id > pUpdate.Peers[j].Id
 				})
-				fmt.Println("PeerUpdate!")
+				//fmt.Println("PeerUpdate! Peers: ", pUpdate.Peers)
 				peerUpdateCh <- pUpdate
 			}
 		}

@@ -22,6 +22,7 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 		peers = append(peers, pInt)
 	}
 	sort.Ints(peers)
+	fmt.Println("Sorted peers: ", peers)
 	fmt.Printf("Elevator %s: Master is elevator %d\n", id, peers[0])
 
 	if peers[0] == idInt {

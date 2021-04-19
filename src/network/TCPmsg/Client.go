@@ -23,16 +23,15 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 		select {
 		case pUpdate := <-pCh:
 			//fmt.Printf("TCPClient: Got peer update\n")
-
 			//Create array of connectedPeers from map
-			conPeersArray := make([]peers.Peer, 0)
+			previousPeersArray := make([]peers.Peer, 0)
 			for _, p := range connectedPeers {
-				conPeersArray = append(conPeersArray, p.peer)
+				previousPeersArray = append(previousPeersArray, p.peer)
 			}
 
 			//Find new and lost peers compared to last iteration
-			newPeers := difference(pUpdate.Peers, conPeersArray)
-			lostPeers := difference(conPeersArray, pUpdate.Peers)
+			newPeers := difference(pUpdate.Peers, previousPeersArray)
+			lostPeers := difference(previousPeersArray, pUpdate.Peers)
 
 			//Add new peers, remove lost peers
 			for _, p := range newPeers {
@@ -46,9 +45,8 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 				delete(connectedPeers, p.Id)
 			}
 			//Determine if we are master, or should stop being master
-			if len(conPeersArray) > 0 {
-				currentMasterId = masterselect.DetermineMaster(id, currentMasterId, conPeersArray, isMaster)
-			}
+
+			currentMasterId = masterselect.DetermineMaster(id, currentMasterId, pUpdate.Peers, isMaster)
 		case pLost := <-peerLostCh:
 			//fmt.Println("TCP: Lost peer:", pLost)
 			//Delete connection if TCP con closes
@@ -67,7 +65,7 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 					if p.peer.Id != id {
 						p.msgChannel <- req
 					} else {
-						HandleMessage(req, rxChannels)
+						go HandleMessage(req, rxChannels)
 					}
 				}
 			case types.Master:
@@ -77,7 +75,7 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 						if p.peer.Id != id {
 							p.msgChannel <- req
 						} else {
-							HandleMessage(req, rxChannels)
+							go HandleMessage(req, rxChannels)
 						}
 					}
 				}

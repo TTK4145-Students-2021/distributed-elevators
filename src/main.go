@@ -1,17 +1,19 @@
 package main
 
 import (
-	"./controller_fsm"
+
 	// "./hardware_io"
-	"./master"
-	"./orders"
+
 	. "./types"
 
 	// "./test"
 	"flag"
 	"fmt"
 
+	"./controller_fsm"
+	"./master"
 	"./network/network"
+	"./orders"
 )
 
 func main() {
@@ -19,9 +21,9 @@ func main() {
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
 
-	iAmMasterCh := make(chan bool)
+	iAmMasterCh := make(chan bool, 200)
 
-	isMasterCh := make(chan bool) //Seperate master channels for testing
+	isMasterCh := make(chan bool, 200) //Seperate master channels for testing
 
 	globalUpdatedOrdersChannel := make(chan GlobalOrderMap)
 	updateElevStateChannel := make(chan State, 200)
@@ -47,9 +49,5 @@ func main() {
 
 	for {
 		select {}
-		/*select{
-		case a:= <-updateElevStateChannel:
-			fmt.Println("Got state update: ",a)
-		}*/
 	}
 }
