@@ -14,18 +14,18 @@ type HelloMsg struct {
 	Iter    int
 }
 
-func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels, isMasterUpdate chan bool) {
+func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels, isMasterUpdate chan bool, peerLostCh chan<- string) {
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	tcpPort := 8080
 	//tcpMsgCh := make(chan types.NetworkMessage, 200)
 
-	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort, isMasterUpdate)
+	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort, isMasterUpdate, peerLostCh)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
 
 }
 
-func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int, isMaster chan<- bool) int {
+func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int, isMaster chan<- bool, peerLostCh chan<- string) int {
 
 	portCh := make(chan int, 1)
 
@@ -35,7 +35,7 @@ func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan typ
 	fmt.Println("Port ", tcpPort)
 
 	// Start TCP Client handler
-	go TCPmsg.ClientHandler(id, rxCh, tcpMsgCh, peerUpdateCh, isMaster)
+	go TCPmsg.ClientHandler(id, rxCh, tcpMsgCh, peerUpdateCh, isMaster, peerLostCh)
 	return tcpPort
 }
 

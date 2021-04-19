@@ -15,9 +15,9 @@ type peerConnection struct {
 	msgChannel chan Request
 }
 
-func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate, isMaster chan<- bool) {
+func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate, isMaster chan<- bool, peerLostCh chan<- string) {
 	connectedPeers := map[string]peerConnection{}
-	peerLostCh := make(chan peers.Peer)
+	tcpConLostCh := make(chan peers.Peer)
 	currentMasterId := id
 	for {
 		select {
@@ -38,19 +38,21 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 				fmt.Println("TCP: New peer:", p)
 				msgCh := make(chan Request, 100)
 				connectedPeers[p.Id] = peerConnection{p, msgCh}
-				go handlePeerConnection(p, msgCh, peerLostCh)
+				go handlePeerConnection(p, msgCh, tcpConLostCh)
 			}
 			for _, p := range lostPeers {
 				fmt.Println("TCP: Lost peer:", p)
 				delete(connectedPeers, p.Id)
+				peerLostCh <- p.Id
 			}
 			//Determine if we are master, or should stop being master
 
 			currentMasterId = masterselect.DetermineMaster(id, currentMasterId, pUpdate.Peers, isMaster)
-		case pLost := <-peerLostCh:
+		case pLost := <-tcpConLostCh:
 			//fmt.Println("TCP: Lost peer:", pLost)
 			//Delete connection if TCP con closes
 			delete(connectedPeers, pLost.Id)
+			peerLostCh <- pLost.Id
 		case message := <-networkMessage:
 			dat, _ := json.Marshal(message.Data)
 			req := Request{

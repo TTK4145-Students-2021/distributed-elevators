@@ -39,6 +39,8 @@ func main() {
 	// iAmMasterCh := make(chan bool)
 	isMasterCh := make(chan bool) //Seperate master channels for testing
 
+	peerLostCh := make(chan string, 200)
+
 	stateUpdateCh := make(chan State, 200)
 	registerOrderCh := make(chan OrderEvent, 200)
 	orderCopyRequestCh := make(chan bool)
@@ -56,7 +58,7 @@ func main() {
 		}
 
 	networkSendCh := make(chan NetworkMessage, 200)
-	network.InitNetwork(ID, networkSendCh, RXChannels, isMasterCh)
+	network.InitNetwork(ID, networkSendCh, RXChannels, isMasterCh, peerLostCh)
 	//internal
 	localOrderCh := make(chan OrderMatrix)
 	localLightCh := make(chan OrderMatrix)
