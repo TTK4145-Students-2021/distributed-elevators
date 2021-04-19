@@ -18,6 +18,7 @@ type peerConnection struct {
 func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate, isMaster chan<- bool) {
 	connectedPeers := map[string]peerConnection{}
 	peerLostCh := make(chan peers.Peer)
+	currentMasterId := id
 	for {
 		select {
 		case pUpdate := <-pCh:
@@ -27,10 +28,6 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			conPeersArray := make([]peers.Peer, 0)
 			for _, p := range connectedPeers {
 				conPeersArray = append(conPeersArray, p.peer)
-			}
-			//Determine if we are master, or should stop being master
-			if len(conPeersArray) != 0 {
-				go masterselect.DetermineIfMaster(id, conPeersArray, isMaster)
 			}
 
 			//Find new and lost peers compared to last iteration
@@ -47,6 +44,10 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			for _, p := range lostPeers {
 				fmt.Println("TCP: Lost peer:", p)
 				delete(connectedPeers, p.Id)
+			}
+			//Determine if we are master, or should stop being master
+			if len(conPeersArray) > 0 {
+				currentMasterId = masterselect.DetermineMaster(id, currentMasterId, conPeersArray, isMaster)
 			}
 		case pLost := <-peerLostCh:
 			//fmt.Println("TCP: Lost peer:", pLost)
@@ -71,7 +72,7 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 				}
 			case types.Master:
 				for _, p := range connectedPeers {
-					if p.peer.IsMaster {
+					if p.peer.Id == currentMasterId {
 						//Send messages to yourself locally, not through tcp
 						if p.peer.Id != id {
 							p.msgChannel <- req

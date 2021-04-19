@@ -43,22 +43,22 @@ func Transmitter(udpPort int, id string, tcpPort int, isMasterUpdate <-chan bool
 	msgPeer := Peer{id, localIP, tcpPort, isMaster, time.Now()}
 	jsonMsg, _ := json.Marshal(msgPeer)
 
-	enable := true
 	for {
 		select {
-		case enable = <-transmitEnable:
 		case <-time.After(interval):
 		case isMaster = <-isMasterUpdate:
+			fmt.Println("Master update: IsMaster:", isMaster)
 			if isMaster {
 				msgPeer.IsMaster = true
 			} else {
 				msgPeer.IsMaster = false
+				fmt.Println("Setting master false")
 			}
 			jsonMsg, _ = json.Marshal(msgPeer)
+			fmt.Println("Json bc msg: ", msgPeer)
 		}
-		if enable {
-			conn.WriteTo(jsonMsg, addr)
-		}
+
+		conn.WriteTo(jsonMsg, addr)
 	}
 }
 
