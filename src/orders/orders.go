@@ -75,11 +75,10 @@ func StartOrderModule(
 			for _, orders := range orderList {
 				for f := 0; f < N_FLOORS; f++ {
 					for b := 0; b < N_BUTTONS-1; b++ {
-						localLights[f][b] = localOrders[f][b] || orders[f][b]
+						localLights[f][b] = localLights[f][b] || orders[f][b]
 					}
 				}
 			}
-			fmt.Println(localLights)
 			localLightCh <- localLights
 
 		case <-orderCopyRequest:
