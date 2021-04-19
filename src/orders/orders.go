@@ -85,7 +85,7 @@ func StartOrderModule(
 				Receipient: Master,
 				ChAddr:     "ordercopyresponsech",
 			}
-			fmt.Println("Sending Order copy: ", orderList)
+			// fmt.Println("Sending Order copy: ", orderList)
 			toMaster <- orderCopy
 		}
 	}
