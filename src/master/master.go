@@ -62,12 +62,13 @@ func RunMaster(
 	for {
 		select {
 		case st := <-stateUpdateCh:
-			// println("M: Got State. ID: ", st.ID)
+			shouldReAssign := false
 			elevator, exist := allElevatorStates[st.ID]
 
 			CabOrders := [N_FLOORS]bool{}
 			if exist {
 				CabOrders = elevator.CabOrders
+				shouldReAssign = elevator.available != st.Available
 			}
 			allElevatorStates[st.ID] = SingleElevator{
 				st.Behavior.String(),
@@ -75,6 +76,11 @@ func RunMaster(
 				st.Direction.String(),
 				st.Available,
 				CabOrders}
+
+			if shouldReAssign {
+				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+				toSlavesCh <- updatedOrders
+			}
 
 		case order := <-registerOrderCh:
 			//debug
@@ -97,11 +103,7 @@ func RunMaster(
 					allElevatorStates[id] = elev
 				}
 			}
-			orderList := reAssignOrders(hallOrders, allElevatorStates)
-			updatedOrders := NetworkMessage{
-				Data:       orderList,
-				Receipient: All,
-				ChAddr:     "ordersfrommasterch"}
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			toSlavesCh <- updatedOrders
 
 		case iAmMaster := <-iAmMasterCh:
@@ -156,17 +158,13 @@ func RunMaster(
 					}
 				}
 			}
-			orderList := reAssignOrders(hallOrders, allElevatorStates)
-			updatedOrders := NetworkMessage{
-				Data:       orderList,
-				Receipient: All,
-				ChAddr:     "ordersfrommasterch"}
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			toSlavesCh <- updatedOrders
 		}
 	}
 }
 
-func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates map[string]SingleElevator) GlobalOrderMap {
+func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates map[string]SingleElevator) NetworkMessage {
 	//removing non available elevators from input
 	var unavailable []string
 	inputmap := make(map[string]SingleElevator)
@@ -186,7 +184,7 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 
 	//calculationg distribution based on input
 	jsonInput := CombinedElevators{hallOrders, inputmap}.Json()
-	updatedOrders := calculateDistribution(jsonInput)
+	orderList := calculateDistribution(jsonInput)
 
 	//adding non-assigned elevators back to the list
 	for _, elevID := range unavailable {
@@ -194,9 +192,14 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 		for floor := range orders {
 			orders[floor][BT_Cab] = allElevatorStates[elevID].CabOrders[floor]
 			fmt.Println("unavailable is ", unavailable)
-			updatedOrders[elevID] = orders
+			orderList[elevID] = orders
 		}
 	}
+	updatedOrders := NetworkMessage{
+		Data:       orderList,
+		Receipient: All,
+		ChAddr:     "ordersfrommasterch"}
+
 	return updatedOrders
 }
 
