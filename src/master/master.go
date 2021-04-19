@@ -54,7 +54,7 @@ func RunMaster(
 	requestOrderCopy := NetworkMessage{
 		Data:       true,
 		Receipient: All,
-		ChAddr:     "ordercopyrequest",
+		ChAddr:     "ordercopyrequestch",
 	}
 
 	toSlavesCh <- requestOrderCopy

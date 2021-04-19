@@ -237,9 +237,9 @@ func (e Elevator) ordersEmpty() bool {
 }
 
 func (e Elevator) ordersAbove() bool {
-	for floor := e.State.Floor + 1; floor < N_FLOORS; floor++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
-			if e.orders[floor][btn] {
+	for f := e.State.Floor + 1; f < N_FLOORS; f++ {
+		for b := 0; b < N_BUTTONS; b++ {
+			if e.orders[f][b] {
 				return true
 			}
 		}
