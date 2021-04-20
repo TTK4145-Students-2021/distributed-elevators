@@ -1,4 +1,4 @@
-package hardware_io
+package hardware
 
 import "time"
 import "sync"

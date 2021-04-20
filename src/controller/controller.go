@@ -1,26 +1,18 @@
-package controller_fsm
+package controller
 
 import (
 	"fmt"
 	"time"
 
-	hw "../hardware_io"
+	hw "../hardware"
 	. "../types"
 )
 
 type Elevator struct {
-	State  State
+	State  ElevState
 	orders OrderMatrix
 	lights OrderMatrix
 }
-
-/*
-Orders // Lights
-1	|	UP	Down	Cab
-2	| 	UP	Down	Cab
-3	|	UP	Down	Cab
-4	|	UP	Down	Cab
-*/
 
 func StartElevatorController(
 	ID string,
@@ -44,7 +36,7 @@ func StartElevatorController(
 
 	/* init variables */
 	e := Elevator{
-		State: State{
+		State: ElevState{
 			ID:        ID,
 			Behavior:  BH_Moving,
 			Floor:     0,
@@ -59,6 +51,8 @@ func StartElevatorController(
 	hw.SetMotorDirection(hw.MD_Down)
 	errorTimeout := time.NewTimer(5 * time.Second)
 	sendState := time.NewTimer(1 * time.Second)
+
+	hw.SetDoorOpenLamp(false)
 
 	for {
 		select {
@@ -212,16 +206,7 @@ func (e Elevator) shouldTakeOrder() bool {
 	return false
 }
 
-/*temp*/
-func (e Elevator) printOrders() { //REMOVE
-	for f := 0; f < N_FLOORS; f++ {
-		for b := 0; b < N_BUTTONS; b++ {
-			println("floor ", f, "button ", b, "value ", e.orders[f][b])
-		}
-	}
-}
-
-func (e Elevator) chooseDirection() Dir { //litt fokket
+func (e Elevator) chooseDirection() Dir {
 	switch e.State.Direction {
 	case DIR_Up:
 		if e.ordersAbove() {
@@ -229,7 +214,7 @@ func (e Elevator) chooseDirection() Dir { //litt fokket
 		} else if e.ordersBelow() {
 			return DIR_Down
 		} else {
-			println("FSM: Fatal error, going up")
+			println("FSM: Fatal error")
 			return DIR_Down
 		}
 	case DIR_Down:
@@ -238,7 +223,7 @@ func (e Elevator) chooseDirection() Dir { //litt fokket
 		} else if e.ordersAbove() {
 			return DIR_Up
 		} else {
-			println("FSM: Fatal error, going down")
+			println("FSM: Fatal error")
 			return DIR_Up
 		}
 	}

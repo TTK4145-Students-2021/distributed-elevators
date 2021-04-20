@@ -1,4 +1,4 @@
-package TCPmsg
+package network
 
 import (
 	"bufio"
@@ -7,37 +7,24 @@ import (
 	"log"
 	"net"
 	"reflect"
-
-	"../../types"
 )
 
-type TestMSG struct {
-	Number  int    `json:"number"`
-	Message string `json:"message"`
-}
-
-type HelloMsg struct {
-	Message string
-	Iter    int
-}
-
-type Request struct {
+type RequestMsg struct {
 	ChannelAdress string `json:"mAdd"`
 	ElevatorId    string `json:"reqId"`
 	Data          []byte `json:"data"`
 }
 
-type Message struct {
+type TcpMsg struct {
 	Connection net.Conn
 	Data       []byte
 }
 
-func ListenAndServe(port int, portCh chan<- int, rxChannels types.RXChannels) {
-
+func listenAndServe(port int, portCh chan<- int, rxChannels RXChannels) {
 	allClients := make(map[net.Conn]string) //map of all clients keyed on their connection
 	newConnections := make(chan net.Conn)   //channel for incoming connections
 	deadConnections := make(chan net.Conn)  //channel for dead connections
-	messages := make(chan Message)          //channel for messages
+	messages := make(chan TcpMsg)           //channel for messages
 	var server net.Listener
 
 	//Iterate until free TCP port is found, send port back through channel
@@ -68,7 +55,7 @@ func ListenAndServe(port int, portCh chan<- int, rxChannels types.RXChannels) {
 			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
-			go ForwardMessageLocally(message, rxChannels)
+			go PassMsgOnRxChannel(message, rxChannels)
 		}
 	}
 
@@ -84,26 +71,26 @@ func acceptConnections(server net.Listener, newConnections chan net.Conn) {
 	}
 }
 
-func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
+func read(conn net.Conn, messages chan TcpMsg, deadConnections chan net.Conn) {
 	reader := bufio.NewReader(conn)
 	for {
 		incoming, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		messages <- Message{conn, []byte(incoming)}
+		messages <- TcpMsg{conn, []byte(incoming)}
 	}
 	deadConnections <- conn
 }
 
-func ForwardMessageLocally(msg interface{}, rxChannels types.RXChannels) {
-	request := Request{}
+func PassMsgOnRxChannel(msg interface{}, rxChannels RXChannels) {
+	request := RequestMsg{}
 	switch msg := msg.(type) {
-	case Message:
+	case TcpMsg:
 		if err := json.Unmarshal(msg.Data, &request); err != nil {
 			fmt.Println("Error decoding JSON:" + err.Error())
 		}
-	case Request:
+	case RequestMsg:
 		request = msg
 	default:
 		fmt.Printf("TCP Server cant handle message type %T", msg)

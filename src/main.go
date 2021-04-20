@@ -4,52 +4,45 @@ import (
 	"strconv"
 	"time"
 
-	"./controller_fsm"
-	hw "./hardware_io"
+	"./controller"
+	hw "./hardware"
 
-	// "./hardware_io"
 	"./master"
-	// "./network"
-	"./orders"
-	. "./types"
-
-	// "./test"
-	"fmt"
-
-	"flag"
-
 	"./network/network"
+	"./orders"
+	t "./types"
+	"flag"
+	"fmt"
 )
 
 func main() {
 	var ID string
 	var simPort string
 	flag.StringVar(&ID, "id", "", "id of this peer")
-	flag.StringVar(&simPort, "simPort", "15657", "id of this peer")
+	flag.StringVar(&simPort, "simport", "15657", "port for simulator")
 	flag.Parse()
 
 	_, err := strconv.Atoi(ID)
 	if err != nil {
-		println("ERROR: ID missing or not integer")
+		println("ERROR: ID missing or non-integer")
 		return
 	}
 	var simAddr string = "localhost:" + simPort
-	hw.Init(simAddr, N_FLOORS)
 
 	// iAmMasterCh := make(chan bool)
 	isMasterCh := make(chan bool) //Seperate master channels for testing
 
 	peerLostCh := make(chan string, 200)
 
-	stateUpdateCh := make(chan State, 200)
-	registerOrderCh := make(chan OrderEvent, 200)
+	stateUpdateCh := make(chan t.ElevState, 200)
+	registerOrderCh := make(chan t.OrderEvent, 200)
 	orderCopyRequestCh := make(chan bool)
 
-	ordersFromMasterCh := make(chan GlobalOrderMap)
-	orderCopyResponseCh := make(chan GlobalOrderMap)
+	ordersFromMasterCh := make(chan t.GlobalOrderMap)
+	orderCopyResponseCh := make(chan t.GlobalOrderMap)
 
 	RXChannels :=
-		RXChannels{
+		network.RXChannels{
 			StateUpdateCh:       stateUpdateCh,
 			RegisterOrderCh:     registerOrderCh,
 			OrdersFromMasterCh:  ordersFromMasterCh,
@@ -57,14 +50,16 @@ func main() {
 			OrderCopyResponseCh: orderCopyResponseCh,
 		}
 
-	networkSendCh := make(chan NetworkMessage, 200)
+	networkSendCh := make(chan t.NetworkMessage, 200)
 	network.InitNetwork(ID, networkSendCh, RXChannels, isMasterCh, peerLostCh)
 	//internal
-	localOrderCh := make(chan OrderMatrix)
-	localLightCh := make(chan OrderMatrix)
+	localOrderCh := make(chan t.OrderMatrix)
+	localLightCh := make(chan t.OrderMatrix)
 	clearedFloorCh := make(chan int, 200)
 
 	fmt.Println("### Starting Elevator ###")
+	time.Sleep(1 * time.Second)
+	hw.Init(simAddr, t.N_FLOORS)
 	go master.RunMaster(
 		ID,
 		isMasterCh,
@@ -73,9 +68,7 @@ func main() {
 		networkSendCh,
 		orderCopyResponseCh,
 		peerLostCh) //make a struct for channels
-	time.Sleep(1 * time.Second)
-
-	go controller_fsm.StartElevatorController(
+	go controller.StartElevatorController(
 		ID,
 		localOrderCh,
 		localLightCh,

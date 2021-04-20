@@ -1,7 +1,7 @@
 package orders
 
 import (
-	"../hardware_io"
+	"../hardware"
 	. "../types"
 )
 
@@ -18,7 +18,7 @@ func StartOrderModule(
 	orderList := make(GlobalOrderMap)
 	keyPress := make(chan ButtonEvent)
 
-	go hardware_io.PollButtons(keyPress)
+	go hardware.PollButtons(keyPress)
 
 	for {
 		select {

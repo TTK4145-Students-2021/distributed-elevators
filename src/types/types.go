@@ -50,7 +50,7 @@ type GlobalOrderMap map[string]OrderMatrix
 
 /* #### Structs ####*/
 
-type State struct { //ElevState??
+type ElevState struct { //ElevState??
 	ID          string
 	Behavior    Behavior `json:"behavior"`
 	Floor       int      `json:"floor"`
@@ -70,13 +70,6 @@ type NetworkMessage struct {
 	Data       interface{}
 	Receipient Receipient
 	ChAddr     string
-}
-type RXChannels struct { //kan defineres i main??
-	StateUpdateCh       chan State          `addr:"stateupdatech"`
-	RegisterOrderCh     chan OrderEvent     `addr:"registerorderch"`
-	OrdersFromMasterCh  chan GlobalOrderMap `addr:"ordersfrommasterch"`
-	OrderCopyRequestCh  chan bool           `addr:"ordercopyrequestch"`
-	OrderCopyResponseCh chan GlobalOrderMap `addr:"ordercopyresponsech"`
 }
 
 /* #### Basic member functions #### */
