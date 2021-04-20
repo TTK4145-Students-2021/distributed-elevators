@@ -69,20 +69,20 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			case types.All:
 				noUDPcon := len(connectedPeers) == 0
 				if noUDPcon {
-					go HandleMessage(req, rxChannels)
+					go ForwardMessageLocally(req, rxChannels)
 				}
 				for _, p := range connectedPeers {
 					//Send messages to yourself locally, not through tcp
 					if p.peer.Id != id {
 						p.msgChannel <- req
 					} else {
-						go HandleMessage(req, rxChannels)
+						go ForwardMessageLocally(req, rxChannels)
 					}
 				}
 			case types.Master:
 				noUDPcon := len(connectedPeers) == 0
 				if noUDPcon {
-					go HandleMessage(req, rxChannels)
+					go ForwardMessageLocally(req, rxChannels)
 				}
 				for _, p := range connectedPeers {
 					if p.peer.Id == currentMasterId {
@@ -90,7 +90,7 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 						if p.peer.Id != id {
 							p.msgChannel <- req
 						} else {
-							go HandleMessage(req, rxChannels)
+							go ForwardMessageLocally(req, rxChannels)
 						}
 					}
 				}
@@ -103,17 +103,17 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers.Peer) {
 	addr := fmt.Sprintf("%s:%d", p.Ip, p.TcpPort)
 	conn, err := net.Dial("tcp", addr)
+	defer func() {
+		pLostCh <- p
+		/*Connection is not currently being closed if the peer is removed from currentPeers, while TCP has not closed.
+		The connection will wait for TCP timeout to close, this should not be a problem*/
+		conn.Close()
+	}()
 	if err != nil {
 		fmt.Println("TCP network connection error: ")
 		fmt.Println(err)
 		return
 	}
-	defer func() {
-		pLostCh <- p
-		/*Connection is not currently being closed if the peer is removed from currentPeers.
-		The connection will wait for TCP timeout to close*/
-		conn.Close()
-	}()
 	for {
 		message := <-msg
 		bytes, _ := json.Marshal(message)
