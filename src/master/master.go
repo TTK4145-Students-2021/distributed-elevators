@@ -83,10 +83,6 @@ func RunMaster(
 			}
 
 		case order := <-registerOrderCh:
-			//debug
-			// a := map[bool]string{false: "new", true: "completed"}
-			// println("M: master got", a[order.Completed])
-			// //debug^
 
 			id := order.ElevID
 			if _, exist := allElevatorStates[id]; !exist { //What happenes if order given, but no elevator state present?

@@ -33,12 +33,17 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			newPeers := difference(pUpdate.Peers, previousPeersArray)
 			lostPeers := difference(previousPeersArray, pUpdate.Peers)
 
-			//Add new peers, remove lost peers
 			for _, p := range newPeers {
-				fmt.Println("TCP: New peer:", p)
-				msgCh := make(chan Request, 100)
-				connectedPeers[p.Id] = peerConnection{p, msgCh}
-				go handlePeerConnection(p, msgCh, tcpConLostCh)
+				//If id is ourself, messages are directly sent to local server, noe need for TCP connection
+				if p.Id == id {
+					connectedPeers[p.Id] = peerConnection{peer: p}
+				} else {
+					fmt.Println("TCP: New peer:", p)
+					msgCh := make(chan Request, 100)
+					connectedPeers[p.Id] = peerConnection{p, msgCh}
+					go handlePeerConnection(p, msgCh, tcpConLostCh)
+				}
+
 			}
 			for _, p := range lostPeers {
 				fmt.Println("TCP: Lost peer:", p)
@@ -62,6 +67,10 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 			}
 			switch message.Receipient {
 			case types.All:
+				noUDPcon := len(connectedPeers) == 0
+				if noUDPcon {
+					go HandleMessage(req, rxChannels)
+				}
 				for _, p := range connectedPeers {
 					//Send messages to yourself locally, not through tcp
 					if p.peer.Id != id {
@@ -71,6 +80,10 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 					}
 				}
 			case types.Master:
+				noUDPcon := len(connectedPeers) == 0
+				if noUDPcon {
+					go HandleMessage(req, rxChannels)
+				}
 				for _, p := range connectedPeers {
 					if p.peer.Id == currentMasterId {
 						//Send messages to yourself locally, not through tcp
