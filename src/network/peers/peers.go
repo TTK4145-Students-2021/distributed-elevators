@@ -30,11 +30,14 @@ func Transmitter(udpPort int, id string, tcpPort int) {
 
 	conn := conn.DialBroadcastUDP(udpPort)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", udpPort))
-
-	localIP, err := localip.LocalIP()
-	if err != nil {
-		fmt.Println(err)
-		localIP = "DISCONNECTED"
+	var localIP string
+	for {
+		var err error
+		localIP, err = localip.LocalIP()
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	msgPeer := Peer{id, localIP, tcpPort, time.Now()}
@@ -74,27 +77,28 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 				lastSeen[p.Id] = p
 
 			}
-			// Removing dead connection
-			for k, v := range lastSeen {
-				if time.Since(v.lastSeen) > timeout {
-					updated = true
-					delete(lastSeen, k)
-				}
-			}
-
-			// Sending update, send at interval to synchronize UDP and TCP connection loss
-			if updated {
-				pUpdate.Peers = make([]Peer, 0, len(lastSeen))
-
-				for _, v := range lastSeen {
-					pUpdate.Peers = append(pUpdate.Peers, v)
-				}
-				sort.Slice(pUpdate.Peers, func(i, j int) bool {
-					return pUpdate.Peers[i].Id > pUpdate.Peers[j].Id
-				})
-				//fmt.Println("PeerUpdate! Peers: ", pUpdate.Peers)
-				peerUpdateCh <- pUpdate
+		}
+		// Removing dead connection
+		for k, v := range lastSeen {
+			if time.Since(v.lastSeen) > timeout {
+				updated = true
+				delete(lastSeen, k)
 			}
 		}
+
+		// Sending update, send at interval to synchronize UDP and TCP connection loss
+		if updated {
+			pUpdate.Peers = make([]Peer, 0, len(lastSeen))
+
+			for _, v := range lastSeen {
+				pUpdate.Peers = append(pUpdate.Peers, v)
+			}
+			sort.Slice(pUpdate.Peers, func(i, j int) bool {
+				return pUpdate.Peers[i].Id > pUpdate.Peers[j].Id
+			})
+			fmt.Println("PeerUpdate! Peers: ", pUpdate.Peers)
+			peerUpdateCh <- pUpdate
+		}
 	}
+
 }

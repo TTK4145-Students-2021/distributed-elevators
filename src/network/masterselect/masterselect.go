@@ -16,6 +16,11 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 	if err != nil {
 		fmt.Println("Error: This elevator id is not a int, reboot with proper integer id")
 	}
+	noConnPeers := len(connectedPeers) == 0
+	if noConnPeers {
+		peers = append(peers, idInt)
+	}
+
 	//peers := make([]string, len(connectedPeers))
 	for _, p := range connectedPeers {
 		pInt, _ := strconv.Atoi(p.Id)
