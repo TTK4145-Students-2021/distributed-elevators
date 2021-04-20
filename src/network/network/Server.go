@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"reflect"
+
+	"../kcp"
 )
 
 type RequestMsg struct {
@@ -25,13 +27,13 @@ func listenAndServe(port int, portCh chan<- int, rxChannels RXChannels) {
 	newConnections := make(chan net.Conn)   //channel for incoming connections
 	deadConnections := make(chan net.Conn)  //channel for dead connections
 	messages := make(chan TcpMsg)           //channel for messages
-	var server net.Listener
+	var server kcp.Listener
 
 	//Iterate until free TCP port is found, send port back through channel
 	for {
 		var err error
 		addr := fmt.Sprintf("0.0.0.0:%d", port)
-		server, err = net.Listen("tcp", addr)
+		server, err = kcp.Listen(addr)
 		if err != nil {
 			fmt.Println("Listen err ", err)
 			port++
@@ -61,7 +63,7 @@ func listenAndServe(port int, portCh chan<- int, rxChannels RXChannels) {
 
 }
 
-func acceptConnections(server net.Listener, newConnections chan net.Conn) {
+func acceptConnections(server kcp.Listener, newConnections chan net.Conn) {
 	for {
 		conn, err := server.Accept()
 		if err != nil {

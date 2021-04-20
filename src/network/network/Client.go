@@ -3,9 +3,9 @@ package network
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 
 	"../../types"
+	"../kcp"
 	"../masterselect"
 	"../peers"
 )
@@ -109,7 +109,7 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 
 func handlePeerConnection(p peers.Peer, msg <-chan RequestMsg, pLostCh chan<- peers.Peer) {
 	addr := fmt.Sprintf("%s:%d", p.Ip, p.TcpPort)
-	conn, err := net.Dial("tcp", addr)
+	conn, err := kcp.Dial(addr)
 	defer func() {
 		pLostCh <- p
 		/*Connection is not currently being closed if the peer is removed from currentPeers, while TCP has not closed.
