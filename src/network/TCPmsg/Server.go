@@ -68,7 +68,7 @@ func ListenAndServe(port int, portCh chan<- int, rxChannels types.RXChannels) {
 			fmt.Printf("Client %v disconnected", allClients[conn])
 			delete(allClients, conn)
 		case message := <-messages:
-			go HandleMessage(message, rxChannels)
+			go ForwardMessageLocally(message, rxChannels)
 		}
 	}
 
@@ -96,7 +96,7 @@ func read(conn net.Conn, messages chan Message, deadConnections chan net.Conn) {
 	deadConnections <- conn
 }
 
-func HandleMessage(msg interface{}, rxChannels types.RXChannels) {
+func ForwardMessageLocally(msg interface{}, rxChannels types.RXChannels) {
 	request := Request{}
 	switch msg := msg.(type) {
 	case Message:
