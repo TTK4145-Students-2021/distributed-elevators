@@ -8,7 +8,7 @@ import (
 	"net"
 	"reflect"
 
-	"../kcp"
+	kcp "gopkg.in/xtaci/kcp-go.v5"
 )
 
 type RequestMsg struct {
@@ -27,7 +27,7 @@ func listenAndServe(port int, portCh chan<- int, rxChannels RXChannels) {
 	newConnections := make(chan net.Conn)   //channel for incoming connections
 	deadConnections := make(chan net.Conn)  //channel for dead connections
 	messages := make(chan TcpMsg)           //channel for messages
-	var server kcp.Listener
+	var server net.Listener
 
 	//Iterate until free TCP port is found, send port back through channel
 	for {
@@ -63,7 +63,7 @@ func listenAndServe(port int, portCh chan<- int, rxChannels RXChannels) {
 
 }
 
-func acceptConnections(server kcp.Listener, newConnections chan net.Conn) {
+func acceptConnections(server net.Listener, newConnections chan net.Conn) {
 	for {
 		conn, err := server.Accept()
 		if err != nil {

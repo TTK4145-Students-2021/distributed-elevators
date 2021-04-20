@@ -10,7 +10,6 @@ import (
 
 func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.Peer, isMaster chan<- bool) string {
 	//Sort all peers, signal if we are lowest id
-	//fmt.Println("peers detrmining", connectedPeers)
 	var peers []int
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
@@ -21,7 +20,6 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 		peers = append(peers, idInt)
 	}
 
-	//peers := make([]string, len(connectedPeers))
 	for _, p := range connectedPeers {
 		pInt, _ := strconv.Atoi(p.Id)
 		peers = append(peers, pInt)
@@ -33,7 +31,6 @@ func DetermineMaster(id string, currentMasterId string, connectedPeers []peers.P
 	if peers[0] == idInt {
 		isMaster <- true
 	} else {
-		//fmt.Println("Removed as master")
 		isMaster <- false
 	}
 	currentMasterId = strconv.Itoa(peers[0])

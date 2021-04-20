@@ -25,18 +25,6 @@ type SingleElevator struct {
 	CabOrders [N_FLOORS]bool `json:"cabRequests"`
 }
 
-/* channels */
-
-// func ListenForMasterUpdate(iAmMasterCh <-chan bool, registerOrder <-chan OrderEvent, updateElevState <-chan State, globalUpdatedOrders chan<- GlobalOrderMap, orderMergeCh <-chan GlobalOrderMap, requestClientOrderCopy chan<- bool) {
-// 	for {
-// 		select {
-// 		case <-iAmMasterCh:
-// 			go RunMaster(iAmMasterCh, registerOrder, updateElevState, globalUpdatedOrders, orderMergeCh, requestClientOrderCopy)
-// 			return
-// 		}
-// 	}
-// }
-
 func RunMaster(
 	ID string,
 	iAmMasterCh <-chan bool,

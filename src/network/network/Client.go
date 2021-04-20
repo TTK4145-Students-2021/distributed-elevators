@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"../../types"
-	"../kcp"
 	"../masterselect"
 	"../peers"
+	kcp "gopkg.in/xtaci/kcp-go.v5"
 )
 
 type peerConnection struct {
