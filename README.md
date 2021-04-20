@@ -26,3 +26,8 @@ The master elevators extra responsibility is to
 Every elevator saves all orders to be done, such that orders are not lost if the master elevator dies. 
 
 A master election is initiated whenever a peer connects, choosing the elevator with the lowest id as master.
+
+Module communication
+--------
+![UML SANNTID](https://user-images.githubusercontent.com/47594779/115465919-990f2000-a22f-11eb-84dd-98f8111ba3da.png)
+
