@@ -15,13 +15,18 @@ type peerConnection struct {
 	msgChannel chan Request
 }
 
-func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh <-chan peers.PeerUpdate, isMaster chan<- bool, peerLostCh chan<- string) {
+func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan types.NetworkMessage, pCh chan peers.PeerUpdate, isMaster chan<- bool, peerLostCh chan<- string) {
 	connectedPeers := map[string]peerConnection{}
 	tcpConLostCh := make(chan peers.Peer)
 	currentMasterId := id
+	var previousPUpdate peers.PeerUpdate
 	for {
 		select {
 		case pUpdate := <-pCh:
+			//If a tcp -
+			if pUpdate.TCPconnUpdate {
+				pUpdate = previousPUpdate
+			}
 			//fmt.Printf("TCPClient: Got peer update\n")
 			//Create array of connectedPeers from map
 			previousPeersArray := make([]peers.Peer, 0)
@@ -50,14 +55,16 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 				delete(connectedPeers, p.Id)
 				peerLostCh <- p.Id
 			}
-			//Determine if we are master, or should stop being master
 
+			//Determine if we are master, or should stop being master. Signal master module on channel
 			currentMasterId = masterselect.DetermineMaster(id, currentMasterId, pUpdate.Peers, isMaster)
 		case pLost := <-tcpConLostCh:
 			//fmt.Println("TCP: Lost peer:", pLost)
 			//Delete connection if TCP con closes
 			delete(connectedPeers, pLost.Id)
 			peerLostCh <- pLost.Id
+			tcpPeerUpdate := peers.PeerUpdate{TCPconnUpdate: true}
+			pCh <- tcpPeerUpdate
 		case message := <-networkMessage:
 			dat, _ := json.Marshal(message.Data)
 			req := Request{
@@ -117,6 +124,7 @@ func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers
 	for {
 		message := <-msg
 		bytes, _ := json.Marshal(message)
+		//fmt.Println("Sent on network")
 		_, err = conn.Write(bytes)
 		_, err2 := conn.Write([]byte("\n"))
 		if err != nil {

@@ -18,13 +18,14 @@ type Peer struct {
 	lastSeen time.Time
 }
 type PeerUpdate struct {
-	Peers []Peer
+	Peers         []Peer
+	TCPconnUpdate bool
 	//New   Peer
 	//Lost  []Peer
 }
 
 const interval = 10 * time.Millisecond
-const timeout = 500 * time.Millisecond
+const timeout = 1000 * time.Millisecond
 
 func Transmitter(udpPort int, id string, tcpPort int) {
 
@@ -56,6 +57,7 @@ func Receiver(udpPort int, peerUpdateCh chan<- PeerUpdate) {
 	var buf [1024]byte
 	var p Peer
 	var pUpdate PeerUpdate
+	pUpdate.TCPconnUpdate = false
 	lastSeen := make(map[string]Peer)
 	conn := conn.DialBroadcastUDP(udpPort)
 
