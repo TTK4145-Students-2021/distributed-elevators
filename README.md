@@ -69,3 +69,8 @@ OS-specific UDP-broadcast implementation
 #### localip
 
 Gets IP-address
+
+### Master module
+### Orders module
+### Controller module
+### Hardware module
