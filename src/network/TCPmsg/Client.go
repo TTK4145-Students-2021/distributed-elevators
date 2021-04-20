@@ -103,17 +103,17 @@ func ClientHandler(id string, rxChannels types.RXChannels, networkMessage <-chan
 func handlePeerConnection(p peers.Peer, msg <-chan Request, pLostCh chan<- peers.Peer) {
 	addr := fmt.Sprintf("%s:%d", p.Ip, p.TcpPort)
 	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		fmt.Println("TCP network connection error: ")
-		fmt.Println(err)
-		return
-	}
 	defer func() {
 		pLostCh <- p
 		/*Connection is not currently being closed if the peer is removed from currentPeers, while TCP has not closed.
 		The connection will wait for TCP timeout to close, this should not be a problem*/
 		conn.Close()
 	}()
+	if err != nil {
+		fmt.Println("TCP network connection error: ")
+		fmt.Println(err)
+		return
+	}
 	for {
 		message := <-msg
 		bytes, _ := json.Marshal(message)
