@@ -51,11 +51,12 @@ type GlobalOrderMap map[string]OrderMatrix
 /* #### Structs ####*/
 
 type State struct { //ElevState??
-	ID        string
-	Behavior  Behavior `json:"behavior"`
-	Floor     int      `json:"floor"`
-	Direction Dir      `json:"direction"`
-	Available bool
+	ID          string
+	Behavior    Behavior `json:"behavior"`
+	Floor       int      `json:"floor"`
+	Direction   Dir      `json:"direction"`
+	Available   bool
+	Obstruction bool
 }
 
 type Receipient int

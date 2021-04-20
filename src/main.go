@@ -71,7 +71,8 @@ func main() {
 		registerOrderCh,
 		stateUpdateCh,
 		networkSendCh,
-		orderCopyResponseCh) //make a struct for channels
+		orderCopyResponseCh,
+		peerLostCh) //make a struct for channels
 	time.Sleep(1 * time.Second)
 
 	go controller_fsm.StartElevatorController(

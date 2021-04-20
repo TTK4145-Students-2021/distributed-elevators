@@ -44,6 +44,7 @@ func RunMaster(
 	stateUpdateCh <-chan State,
 	toSlavesCh chan<- NetworkMessage,
 	orderCopyResponseCh <-chan GlobalOrderMap,
+	peerLostCh <-chan string,
 ) {
 	println("## Running Master ##")
 
@@ -123,6 +124,17 @@ func RunMaster(
 						}
 					}
 				}
+			}
+		case lostPeer := <-peerLostCh:
+			elevator, exist := allElevatorStates[lostPeer]
+
+			if !exist {
+				break
+			} else {
+				elevator.available = false
+				allElevatorStates[lostPeer] = elevator
+				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+				toSlavesCh <- updatedOrders
 			}
 
 		case orderCopy := <-orderCopyResponseCh: //rename to mergeResponse?
