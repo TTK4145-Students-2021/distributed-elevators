@@ -17,12 +17,10 @@ type HelloMsg struct {
 func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels types.RXChannels, isMasterUpdate chan bool, peerLostCh chan<- string) {
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
-	tcpPort := 8080
-	//tcpMsgCh := make(chan types.NetworkMessage, 200)
+	defaultTcpPort := 8080
 
-	tcpPort = runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, tcpPort, isMasterUpdate, peerLostCh)
+	tcpPort := runTCPServerAndClient(id, rxChannels, networkSendCh, peerUpdateCh, defaultTcpPort, isMasterUpdate, peerLostCh)
 	go runUDPServer(id, tcpPort, isMasterUpdate, peerUpdateCh)
-
 }
 
 func runTCPServerAndClient(id string, rxCh types.RXChannels, tcpMsgCh <-chan types.NetworkMessage, peerUpdateCh <-chan peers.PeerUpdate, tcpPort int, isMaster chan<- bool, peerLostCh chan<- string) int {

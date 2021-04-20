@@ -31,6 +31,7 @@ func Transmitter(udpPort int, id string, tcpPort int) {
 	conn := conn.DialBroadcastUDP(udpPort)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", udpPort))
 	var localIP string
+	//Dont start transmitter until we get our IP, in case no network on startup
 	for {
 		var err error
 		localIP, err = localip.LocalIP()
