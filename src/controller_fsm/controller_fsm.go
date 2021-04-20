@@ -39,11 +39,13 @@ func StartElevatorController(
 	/* init channels */
 	floorSensorCh := make(chan int)
 	stopSensorCh := make(chan bool)
-	door_open := make(chan bool, 200)
+	obstructionSensorCh := make(chan bool)
+	door_openCh := make(chan bool, 200)
 
 	/* init goroutines */
 	go hw.PollFloorSensor(floorSensorCh)
 	go hw.PollStopButton(stopSensorCh)
+	go hw.PollObstructionSwitch(obstructionSensorCh)
 
 	/* init variables */
 	e := Elevator{
@@ -75,7 +77,7 @@ func StartElevatorController(
 				errorTimeout.Stop()
 			case BH_Moving:
 				if e.shouldTakeOrder() {
-					door_open <- true
+					door_openCh <- true
 					break
 				}
 				if e.ordersEmpty() {
@@ -106,7 +108,7 @@ func StartElevatorController(
 				ChAddr:     "stateupdatech"}
 			toMasterCh <- updateState
 
-		case <-door_open:
+		case <-door_openCh:
 			println("FSM: Door Open")
 			e.State.Behavior = BH_DoorOpen
 			hw.SetMotorDirection(hw.MD_Stop)
@@ -116,6 +118,10 @@ func StartElevatorController(
 			clearedFloorCh <- e.State.Floor
 
 		case <-doorClose.C:
+			if e.State.Obstruction {
+				doorClose.Reset(3 * time.Second)
+				break
+			}
 			println("FSM: Door Closing")
 			hw.SetDoorOpenLamp(false)
 
@@ -129,8 +135,8 @@ func StartElevatorController(
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 				errorTimeout.Reset(5 * time.Second)
 			}
-		case orderMat := <-orderUpdateCh:
-			e.orders = orderMat
+		case newOrders := <-orderUpdateCh:
+			e.orders = newOrders
 			if e.ordersEmpty() {
 				break
 			}
@@ -140,8 +146,8 @@ func StartElevatorController(
 				break
 
 			case BH_Idle:
-				if orderMat.OrderOnFloor(e.State.Floor) {
-					door_open <- true
+				if newOrders.OrderOnFloor(e.State.Floor) {
+					door_openCh <- true
 					break
 				}
 				e.State.Direction = e.chooseDirection()
@@ -149,19 +155,19 @@ func StartElevatorController(
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 				errorTimeout.Reset(5 * time.Second)
 			case BH_DoorOpen:
-				if orderMat.OrderOnFloor(e.State.Floor) {
-					door_open <- true
+				if newOrders.OrderOnFloor(e.State.Floor) {
+					door_openCh <- true
 					break
 				}
 			}
 
-		case lightMat := <-lightUpdateCh:
-			for f, row := range lightMat {
+		case newLights := <-lightUpdateCh:
+			for f, row := range newLights {
 				for b, setLamp := range row {
 					hw.SetButtonLamp(ButtonType(b), f, setLamp)
 				}
 			}
-			e.lights = lightMat
+			e.lights = newLights
 
 		case <-errorTimeout.C:
 			/* Case where elevator gets stuck */
@@ -183,6 +189,16 @@ func StartElevatorController(
 
 		case <-stopSensorCh:
 			hw.SetMotorDirection(hw.MD_Stop)
+
+		case obstructed := <-obstructionSensorCh:
+			fmt.Println("Got obstruction, value: ", obstructed)
+			if obstructed {
+				e.State.Obstruction = true
+				e.State.Available = false
+			} else {
+				e.State.Obstruction = false
+				e.State.Available = true
+			}
 		}
 	}
 }
@@ -210,7 +226,7 @@ func (e Elevator) printOrders() { //REMOVE
 	}
 }
 
-func (e Elevator) chooseDirection() Dir {
+func (e Elevator) chooseDirection() Dir { //litt fokket
 	switch e.State.Direction {
 	case DIR_Up:
 		if e.ordersAbove() {
@@ -219,6 +235,7 @@ func (e Elevator) chooseDirection() Dir {
 			return DIR_Down
 		} else {
 			println("FSM: Fatal error, going up")
+			return DIR_Down
 		}
 	case DIR_Down:
 		if e.ordersBelow() {
@@ -227,9 +244,10 @@ func (e Elevator) chooseDirection() Dir {
 			return DIR_Up
 		} else {
 			println("FSM: Fatal error, going down")
+			return DIR_Up
 		}
 	}
-	return e.State.Direction //MUST REMOVE THIS
+	return e.State.Direction
 }
 
 func (e Elevator) ordersEmpty() bool {
