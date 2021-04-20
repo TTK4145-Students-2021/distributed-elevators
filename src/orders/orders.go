@@ -5,25 +5,27 @@ import (
 	. "../types"
 )
 
+type OrderChannels struct {
+	LocalOrderCh 	 	chan OrderMatrix,
+	LocalLightCh 	 	chan OrderMatrix,
+	ClearedFloorCh     	chan int,
+	OrdersFromMasterCh 	chan GlobalOrderMap,
+	OrderCopyRequestCh 	chan bool,
+	ToMasterCh         	chan NetworkMessage,
+	KeyPressCh       	chan ButtonEvent,
+}
+
 func StartOrderModule(
 	ID string,
-	localOrderCh chan<- OrderMatrix,
-	localLightCh chan<- OrderMatrix,
-	clearedFloor <-chan int,
-	toMaster chan<- NetworkMessage,
-	ordersFromMaster <-chan GlobalOrderMap,
-	orderCopyRequest <-chan bool,
+	ch.OrderChannels,
 ) {
 
 	orderList := make(GlobalOrderMap)
-	keyPress := make(chan ButtonEvent)
-
-	go hardware.PollButtons(keyPress)
 
 	for {
 		select {
 
-		case button := <-keyPress:
+		case button := <-ch.KeyPressCh:
 			btn := []ButtonEvent{button}
 			newOrder := OrderEvent{
 				ElevID:    ID,
@@ -37,7 +39,7 @@ func StartOrderModule(
 
 			toMaster <- registerNewOrder
 
-		case floor := <-clearedFloor:
+		case floor := <-ch.ClearedFloor:
 			orderArray := []ButtonEvent{}
 			for btn := 0; btn < N_BUTTONS; btn++ {
 
@@ -59,7 +61,7 @@ func StartOrderModule(
 				ChAddr:     "registerorderch"}
 			toMaster <- registerCompletedOrder
 
-		case orderList = <-ordersFromMaster:
+		case orderList = <-ch.OrdersFromMaster:
 			localOrders := orderList[ID]
 			localOrderCh <- localOrders
 
@@ -73,7 +75,7 @@ func StartOrderModule(
 			}
 			localLightCh <- localLights
 
-		case <-orderCopyRequest:
+		case <-ch.OrderCopyRequest:
 			orderCopy := NetworkMessage{
 				Data:       orderList,
 				Receipient: Master,

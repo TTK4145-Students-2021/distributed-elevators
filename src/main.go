@@ -29,31 +29,61 @@ func main() {
 	isMasterCh := make(chan bool)
 	peerLostCh := make(chan string, 200)
 
-	stateUpdateCh := make(chan t.ElevState, 200)
-	registerOrderCh := make(chan t.OrderEvent, 200)
-	orderCopyRequestCh := make(chan bool)
-
-	ordersFromMasterCh := make(chan t.GlobalOrderMap)
-	orderCopyResponseCh := make(chan t.GlobalOrderMap)
-
 	RXChannels :=
 		network.RXChannels{
-			StateUpdateCh:       stateUpdateCh,
-			RegisterOrderCh:     registerOrderCh,
-			OrdersFromMasterCh:  ordersFromMasterCh,
-			OrderCopyRequestCh:  orderCopyRequestCh,
-			OrderCopyResponseCh: orderCopyResponseCh,
+			StateUpdateCh:       make(chan t.ElevState, 200),
+			RegisterOrderCh:     make(chan t.OrderEvent, 200),
+			OrdersFromMasterCh:  make(chan t.GlobalOrderMap),
+			OrderCopyRequestCh:  make(chan bool),
+			OrderCopyResponseCh: make(chan t.GlobalOrderMap),
 		}
 
 	networkSendCh := make(chan t.NetworkMessage, 200)
 	network.InitNetwork(ID, networkSendCh, RXChannels, isMasterCh, peerLostCh)
-	//internal
-	localOrderCh := make(chan t.OrderMatrix)
-	localLightCh := make(chan t.OrderMatrix)
-	clearedFloorCh := make(chan int, 200)
+
+	masterChannels := master.MasterChannels{
+		IsMasterCh: chan bool,
+		PeerLostCh: chan string,
+		ToSlavesCh: chan NetworkMessage,
+		RegisterOrderCh: chan OrderEvent,
+		StateUpdateCh: <-chan ElevState,
+		OrderCopyResponseCh: chan GlobalOrderMap,
+	}
+
+
+	hwChannels := hw.hardwareChannels{
+		FloorSensorCh:       make(chan int),
+		StopSensorCh:        make(chan bool),
+		ObstructionSensorCh: make(chan bool),
+		KeyPressCh:          make(chan t.ButtonEvent),
+	}
+
+	orderChannels := orders.OrderChannels{
+		LocalOrderCh:       make(chan t.OrderMatrix),
+		LocalLightCh:       make(chan t.OrderMatrix),
+		ClearedFloorCh:     make(chan int, 200),
+		OrdersFromMasterCh: make(chan t.GlobalOrderMap),
+		OrderCopyRequestCh: make(chan bool),
+		ToMasterCh:         networkSendCh,
+		KeyPressCh:         hwChannels.KeyPressCh,
+	}
+
+	ctrChannels := controller.ControllerChannels{
+		FloorSensorCh:       hwChannels.FloorSensorCh,
+		StopSensorCh:        hwChannels.StopSensorCh,
+		ObstructionSensorCh: hwChannels.ObstructionSensorCh,
+		LocalOrderCh:        orderChannels.LocalOrderCh,
+		LocalLightCh:        orderChannels.LocalLightCh,
+		ClearedFloorCh:      orderChannels.ClearedFloorCh,
+		ToMasterCh:          networkSendCh,
+	}
+
 
 	fmt.Println("### Starting Elevator ###")
-	hw.Init("localhost:"+simPort, t.N_FLOORS)
+	hw.Init(
+		"localhost:"+simPort, t.N_FLOORS,
+		hwChannels,
+	)
 
 	go master.RunMaster(
 		ID,
@@ -62,22 +92,15 @@ func main() {
 		stateUpdateCh,
 		networkSendCh,
 		orderCopyResponseCh,
-		peerLostCh)
+		peerLostCh,
+	)
 	go controller.StartElevatorController(
 		ID,
-		localOrderCh,
-		localLightCh,
-		clearedFloorCh,
-		networkSendCh,
+		ctrChannels,
 	)
 	go orders.StartOrderModule(
 		ID,
-		localOrderCh,
-		localLightCh,
-		clearedFloorCh,
-		networkSendCh,
-		ordersFromMasterCh,
-		orderCopyRequestCh,
+		orderChannels,
 	)
 	select {}
 }
