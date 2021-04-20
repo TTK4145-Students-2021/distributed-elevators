@@ -29,5 +29,6 @@ A master election is initiated whenever a peer connects, choosing the elevator w
 
 Module communication
 --------
+Communication is performed with go channels. The network module is responsible for sending data to the correct elevator, routing it locally if needed.
 ![UML SANNTID](https://user-images.githubusercontent.com/47594779/115465919-990f2000-a22f-11eb-84dd-98f8111ba3da.png)
 
