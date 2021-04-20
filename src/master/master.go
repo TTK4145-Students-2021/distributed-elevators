@@ -190,11 +190,11 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 	// 	unavailable = nil
 	// }
 
-	//calculationg distribution based on input
+	//calculationg distribution
 	jsonInput := CombinedElevators{hallOrders, inputmap}.Json()
 	orderList := calculateDistribution(jsonInput)
 
-	//adding non-assigned elevators back to the list
+	//adding non-assigned elevator call orders back to the list
 	for _, elevID := range unavailable {
 		orders := OrderMatrix{}
 		for floor := range orders {

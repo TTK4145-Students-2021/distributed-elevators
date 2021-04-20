@@ -15,15 +15,9 @@ func StartOrderModule(
 	orderCopyRequest <-chan bool,
 ) {
 
-	// testMat := OrderMatrix{}
-	// // testMat[1][1] = true
-	// // testMat[2][1] = true
-	// // testMat[3][2] = true
-
 	orderList := make(GlobalOrderMap)
-	// globalOrderMap[ID] = testMat
-
 	keyPress := make(chan ButtonEvent)
+
 	go hardware_io.PollButtons(keyPress)
 
 	for {
@@ -85,7 +79,6 @@ func StartOrderModule(
 				Receipient: Master,
 				ChAddr:     "ordercopyresponsech",
 			}
-			// fmt.Println("Sending Order copy: ", orderList)
 			toMaster <- orderCopy
 		}
 	}

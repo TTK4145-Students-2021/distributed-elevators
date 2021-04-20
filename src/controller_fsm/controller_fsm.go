@@ -22,11 +22,6 @@ Orders // Lights
 4	|	UP	Down	Cab
 */
 
-/* ISSUES
-- What happens if elevator box power turned off ?
-- Add periodically send state to Master
-*/
-
 func StartElevatorController(
 	ID string,
 	orderUpdateCh <-chan OrderMatrix,
