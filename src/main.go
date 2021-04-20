@@ -1,11 +1,9 @@
 package main
 
 import (
-	"strconv"
-	"time"
-
 	"./controller"
 	hw "./hardware"
+	"strconv"
 
 	"./master"
 	"./network/network"
@@ -18,7 +16,7 @@ import (
 func main() {
 	var ID string
 	var simPort string
-	flag.StringVar(&ID, "id", "", "id of this peer")
+	flag.StringVar(&ID, "id", "", "id of this elevator")
 	flag.StringVar(&simPort, "simport", "15657", "port for simulator")
 	flag.Parse()
 
@@ -27,11 +25,8 @@ func main() {
 		println("ERROR: ID missing or non-integer")
 		return
 	}
-	var simAddr string = "localhost:" + simPort
 
-	// iAmMasterCh := make(chan bool)
-	isMasterCh := make(chan bool) //Seperate master channels for testing
-
+	isMasterCh := make(chan bool)
 	peerLostCh := make(chan string, 200)
 
 	stateUpdateCh := make(chan t.ElevState, 200)
@@ -58,8 +53,8 @@ func main() {
 	clearedFloorCh := make(chan int, 200)
 
 	fmt.Println("### Starting Elevator ###")
-	time.Sleep(1 * time.Second)
-	hw.Init(simAddr, t.N_FLOORS)
+	hw.Init("localhost:"+simPort, t.N_FLOORS)
+
 	go master.RunMaster(
 		ID,
 		isMasterCh,
@@ -67,7 +62,7 @@ func main() {
 		stateUpdateCh,
 		networkSendCh,
 		orderCopyResponseCh,
-		peerLostCh) //make a struct for channels
+		peerLostCh)
 	go controller.StartElevatorController(
 		ID,
 		localOrderCh,
@@ -82,9 +77,7 @@ func main() {
 		clearedFloorCh,
 		networkSendCh,
 		ordersFromMasterCh,
-		orderCopyRequestCh)
-
-	for {
-		select {}
-	}
+		orderCopyRequestCh,
+	)
+	select {}
 }

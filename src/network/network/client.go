@@ -12,10 +12,10 @@ import (
 
 type peerConnection struct {
 	peer       peers.Peer
-	msgChannel chan RequestMsg
+	msgChannel chan netMsg
 }
 
-func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.NetworkMessage, pCh chan peers.PeerUpdate, isMaster chan<- bool, peerLostCh chan<- string) {
+func runClient(id string, rxChannels RXChannels, networkMessage <-chan types.NetworkMessage, pCh chan peers.PeerUpdate, isMaster chan<- bool, peerLostCh chan<- string) {
 	connectedPeers := map[string]peerConnection{}
 	tcpConLostCh := make(chan peers.Peer)
 	currentMasterId := id
@@ -23,11 +23,9 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 	for {
 		select {
 		case pUpdate := <-pCh:
-			//If a tcp -
 			if pUpdate.TCPconnUpdate {
 				pUpdate = previousPUpdate
 			}
-			//fmt.Printf("TCPClient: Got peer update\n")
 			//Create array of connectedPeers from map
 			previousPeersArray := make([]peers.Peer, 0)
 			for _, p := range connectedPeers {
@@ -44,7 +42,7 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 					connectedPeers[p.Id] = peerConnection{peer: p}
 				} else {
 					fmt.Println("TCP: New peer:", p)
-					msgCh := make(chan RequestMsg, 100)
+					msgCh := make(chan netMsg, 100)
 					connectedPeers[p.Id] = peerConnection{p, msgCh}
 					go handlePeerConnection(p, msgCh, tcpConLostCh)
 				}
@@ -67,7 +65,7 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 			pCh <- tcpPeerUpdate
 		case message := <-networkMessage:
 			dat, _ := json.Marshal(message.Data)
-			req := RequestMsg{
+			req := netMsg{
 				ElevatorId:    "102", //Add elevator id here
 				ChannelAdress: message.ChAddr,
 				Data:          dat,
@@ -76,20 +74,20 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 			case types.All:
 				noUDPcon := len(connectedPeers) == 0
 				if noUDPcon {
-					go PassMsgOnRxChannel(req, rxChannels)
+					go decodeMsg(req, rxChannels)
 				}
 				for _, p := range connectedPeers {
 					//Send messages to yourself locally, not through tcp
 					if p.peer.Id != id {
 						p.msgChannel <- req
 					} else {
-						go PassMsgOnRxChannel(req, rxChannels)
+						go decodeMsg(req, rxChannels)
 					}
 				}
 			case types.Master:
 				noUDPcon := len(connectedPeers) == 0
 				if noUDPcon {
-					go PassMsgOnRxChannel(req, rxChannels)
+					go decodeMsg(req, rxChannels)
 				}
 				for _, p := range connectedPeers {
 					if p.peer.Id == currentMasterId {
@@ -97,7 +95,7 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 						if p.peer.Id != id {
 							p.msgChannel <- req
 						} else {
-							go PassMsgOnRxChannel(req, rxChannels)
+							go decodeMsg(req, rxChannels)
 						}
 					}
 				}
@@ -107,7 +105,7 @@ func runTcpClient(id string, rxChannels RXChannels, networkMessage <-chan types.
 	}
 }
 
-func handlePeerConnection(p peers.Peer, msg <-chan RequestMsg, pLostCh chan<- peers.Peer) {
+func handlePeerConnection(p peers.Peer, msg <-chan netMsg, pLostCh chan<- peers.Peer) {
 	addr := fmt.Sprintf("%s:%d", p.Ip, p.TcpPort)
 	conn, err := kcp.Dial(addr)
 	defer func() {
