@@ -6,7 +6,7 @@ import (
 
 	"../../types"
 	"../peers"
-	kcp "gopkg.in/xtaci/kcp-go.v5"
+	kcp "github.com/xtaci/kcp-go"
 	"net"
 )
 

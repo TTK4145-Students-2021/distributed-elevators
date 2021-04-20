@@ -7,7 +7,7 @@ import (
 	"../../types"
 	"../masterselect"
 	"../peers"
-	kcp "gopkg.in/xtaci/kcp-go.v5"
+	kcp "github.com/xtaci/kcp-go"
 )
 
 type peerConnection struct {
