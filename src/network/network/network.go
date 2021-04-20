@@ -6,6 +6,8 @@ import (
 
 	"../../types"
 	"../peers"
+	kcp "gopkg.in/xtaci/kcp-go.v5"
+	"net"
 )
 
 type RXChannels struct {
@@ -16,23 +18,38 @@ type RXChannels struct {
 	OrderCopyResponseCh chan types.GlobalOrderMap `addr:"ordercopyresponsech"`
 }
 
+const peerDetectionPort = 15647
+
+var serverPort = 6942
+
 func InitNetwork(id string, networkSendCh <-chan types.NetworkMessage, rxChannels RXChannels, isMasterCh chan bool, peerLostCh chan string) {
 
 	peerUpdateCh := make(chan peers.PeerUpdate)
-	defaultTcpPort := 6942
 
-	portCh := make(chan int, 1)
+	serverPort, connection := getAvaileblePort(serverPort)
+	fmt.Println("Server listening on port:", serverPort)
 
-	//Spawn TCP listen client handler, get assigned port
-	go listenAndServe(defaultTcpPort, portCh, rxChannels)
+	// Start peer discovery
+	go peers.Transmitter(peerDetectionPort, id, serverPort)
+	go peers.Receiver(peerDetectionPort, peerUpdateCh)
 
-	tcpPort := <-portCh
-	fmt.Println("Port ", tcpPort)
+	go runServer(serverPort, connection, rxChannels)
+	go runClient(id, rxChannels, networkSendCh, peerUpdateCh, isMasterCh, peerLostCh)
 
-	// Start TCP Client handler
-	go runTcpClient(id, rxChannels, networkSendCh, peerUpdateCh, isMasterCh, peerLostCh)
+}
 
-	// Start UDP-peer discovery
-	go peers.Transmitter(15647, id, tcpPort)
-	go peers.Receiver(15647, peerUpdateCh)
+func getAvaileblePort(port int) (int, net.Listener) {
+	var connection net.Listener
+	for {
+		var err error
+		addr := fmt.Sprintf("0.0.0.0:%d", port)
+		connection, err = kcp.Listen(addr)
+		if err != nil {
+			fmt.Println("Listen err ", err)
+			port++
+		} else {
+			break
+		}
+	}
+	return port, connection
 }
