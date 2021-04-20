@@ -1,4 +1,4 @@
-Network module with UDP peer discovery, tcp messages and more
+Network module with UDP peer discovery, reliable udp messaging and more
 ==========================================
 
 This is a collection of modules related to networking. 
