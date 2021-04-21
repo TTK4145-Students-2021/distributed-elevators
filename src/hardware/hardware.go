@@ -21,20 +21,18 @@ const (
 	MD_Stop                = 2
 )
 
-// type ButtonType int
+type HardwareChannels struct {
+	FloorSensorCh       chan int
+	StopSensorCh        chan bool
+	ObstructionSensorCh chan bool
+	KeyPressCh          chan ButtonEvent
+}
 
-// const (
-// 	BT_HallUp   ButtonType = 0
-// 	BT_HallDown            = 1
-// 	BT_Cab                 = 2
-// )
-
-// type ButtonEvent struct {
-// 	Floor  int
-// 	Button ButtonType
-// }
-
-func Init(addr string, numFloors int) {
+func Init(
+	addr string,
+	numFloors int,
+	ch HardwareChannels,
+) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
@@ -47,6 +45,12 @@ func Init(addr string, numFloors int) {
 		panic(err.Error())
 	}
 	_initialized = true
+
+	SetDoorOpenLamp(false)
+	go PollFloorSensor(ch.FloorSensorCh)
+	go PollStopButton(ch.StopSensorCh)
+	go PollObstructionSwitch(ch.ObstructionSensorCh)
+	go PollButtons(ch.KeyPressCh)
 }
 
 func SetMotorDirection(dir MotorDirection) {

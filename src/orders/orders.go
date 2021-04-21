@@ -1,29 +1,30 @@
 package orders
 
 import (
-	"../hardware"
 	. "../types"
 )
 
+type OrderChannels struct {
+	LocalOrderCh       chan OrderMatrix
+	LocalLightCh       chan OrderMatrix
+	ClearedFloorCh     chan int
+	OrdersFromMasterCh chan GlobalOrderMap
+	OrderCopyRequestCh chan bool
+	ToMasterCh         chan NetworkMessage
+	KeyPressCh         chan ButtonEvent
+}
+
 func StartOrderModule(
 	ID string,
-	localOrderCh chan<- OrderMatrix,
-	localLightCh chan<- OrderMatrix,
-	clearedFloor <-chan int,
-	toMaster chan<- NetworkMessage,
-	ordersFromMaster <-chan GlobalOrderMap,
-	orderCopyRequest <-chan bool,
+	ch OrderChannels,
 ) {
 
 	orderList := make(GlobalOrderMap)
-	keyPress := make(chan ButtonEvent)
-
-	go hardware.PollButtons(keyPress)
 
 	for {
 		select {
 
-		case button := <-keyPress:
+		case button := <-ch.KeyPressCh:
 			btn := []ButtonEvent{button}
 			newOrder := OrderEvent{
 				ElevID:    ID,
@@ -35,9 +36,9 @@ func StartOrderModule(
 				Receipient: Master,
 				ChAddr:     "registerorderch"}
 
-			toMaster <- registerNewOrder
+			ch.ToMasterCh <- registerNewOrder
 
-		case floor := <-clearedFloor:
+		case floor := <-ch.ClearedFloorCh:
 			orderArray := []ButtonEvent{}
 			for btn := 0; btn < N_BUTTONS; btn++ {
 
@@ -57,11 +58,11 @@ func StartOrderModule(
 				Data:       completedOrder,
 				Receipient: Master,
 				ChAddr:     "registerorderch"}
-			toMaster <- registerCompletedOrder
+			ch.ToMasterCh <- registerCompletedOrder
 
-		case orderList = <-ordersFromMaster:
+		case orderList = <-ch.OrdersFromMasterCh:
 			localOrders := orderList[ID]
-			localOrderCh <- localOrders
+			ch.LocalOrderCh <- localOrders
 
 			localLights := localOrders
 			for _, orders := range orderList {
@@ -71,15 +72,15 @@ func StartOrderModule(
 					}
 				}
 			}
-			localLightCh <- localLights
+			ch.LocalLightCh <- localLights
 
-		case <-orderCopyRequest:
+		case <-ch.OrderCopyRequestCh:
 			orderCopy := NetworkMessage{
 				Data:       orderList,
 				Receipient: Master,
 				ChAddr:     "ordercopyresponsech",
 			}
-			toMaster <- orderCopy
+			ch.ToMasterCh <- orderCopy
 		}
 	}
 }
