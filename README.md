@@ -71,6 +71,10 @@ OS-specific UDP-broadcast implementation
 Gets IP-address
 
 ### Master module
+Responsible for collecting all orders and order updates from all peers, calculate assignment and reassignment and send this to all peers. Cab orders are also saved for each elevator, and resent to an elevator that reconnects. This module only runs if the elevator is determined to be master by the network module. All non-completed orders are kept even if a master disconnects, or a new master is elected, as long as at least one of the peers is alive. The new master then requests all orders from all peers.   
 ### Orders module
+Responsible for keeping the order list by listening for assigned orders from master, sending order updates to master and suppliyng the controller module with local orders and lights. 
 ### Controller module
+The state machine of the single elevator logic. Local elevator orders and lights to be set are supplied by the orders module. Sensor input is supplied by the hardware module. Motor and light setting is sent to the hardware module. 
 ### Hardware module
+Responsible for direct hardware actions to the elevator box or simulator, such as motor and light setting, and sensor and button readouts. 
