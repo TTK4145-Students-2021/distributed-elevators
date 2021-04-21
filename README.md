@@ -8,7 +8,7 @@ Golang implementation of  `n` elevators working in parallel across `m` floors. M
 Dependencies
 -------
 kcp-go is required, and is used for smooth, reliable, error checked and ordered delivery of streams over UDP packets.
-kcp can be installed by running ...
+kcp can be installed by running `go get github.com/xtaci/kcp-go`
 Due to the high packet loss simulation requirement, TCP is a really bad choice due to the aggressive congestion control implemented to save bandwith. kcp-go 
 is optimized for flow rate and uses a bit more bandwidth, but reaches speeds magnitudes faster than TCP in our case. With TCP, we measured delays well over a minute with 25% chance of packet loss, where kcp got delays of about a seconds. This is partly due to TCP's doubling of timout for each packet loss, selective retransmission implemented with kcp, and non-concessional flow control possible with kcp. 
 
