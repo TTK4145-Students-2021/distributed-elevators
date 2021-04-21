@@ -71,7 +71,7 @@ func RunMaster(ID string, ch MasterChannels) {
 		case order := <-ch.RegisterOrderCh:
 
 			id := order.ElevID
-			if _, exist := allElevatorStates[id]; !exist { //What happenes if order given, but no elevator state present?
+			if _, exist := allElevatorStates[id]; !exist {
 				println("M: No client with ID: ", order.ElevID)
 				break
 			}
@@ -79,7 +79,7 @@ func RunMaster(ID string, ch MasterChannels) {
 				switch o.Button {
 				case BT_HallUp, BT_HallDown:
 					hallOrders[o.Floor][o.Button] = !order.Completed
-				case BT_Cab: //What happenes if order given, but no elevator state present?
+				case BT_Cab:
 					elev := allElevatorStates[id]
 					elev.CabOrders[o.Floor] = !order.Completed
 					allElevatorStates[id] = elev
@@ -123,12 +123,8 @@ func RunMaster(ID string, ch MasterChannels) {
 			ch.ToSlavesCh <- updatedOrders
 
 		case orderCopy := <-ch.OrderCopyResponseCh: //rename to mergeResponse?
-			/*
-				<- OR global map
-					*when master is initiated, it will request the other peers for their copy
-					of the global map and OR them together.
-					OR'ing will happen here.
-			*/
+			/*	*when master is initiated, it will request the other peers for their copy
+				of the orderlist and OR them together. */
 			fmt.Println("M: got order copy response ")
 			for elevID, orderMatrix := range orderCopy {
 				for f, row := range orderMatrix {
@@ -172,12 +168,6 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 			inputmap[elevID] = elevState
 		}
 	}
-	// if len(inputmap) == 0 {
-	// 	// HANDLES WHEN INPUTMAP EMPTY -> makes it so orders are assigned
-	// 	fmt.Println("M: Shiii, we got an empty inputmap in reAssignOrders") //remove
-	// 	inputmap = allElevatorStates
-	// 	unavailable = nil
-	// }
 
 	//calculationg distribution
 	jsonInput := CombinedElevators{hallOrders, inputmap}.Json()
@@ -201,16 +191,12 @@ func reAssignOrders(hallOrders [N_FLOORS][N_BUTTONS - 1]bool, allElevatorStates 
 }
 
 func (c CombinedElevators) Json() string {
-	// json_byte, _ := json.MarshalIndent(&c, "", "    ")
 	json_byte, _ := json.Marshal(&c)
 	return string(json_byte)
 }
 
 func calculateDistribution(input_json string) GlobalOrderMap {
-
-	// input, err := ioutil.ReadFile("../test.json")
 	out, _ := exec.Command("../hall_request_assigner", "--includeCab", "--input", input_json).Output()
-
 	assigned_orders := make(GlobalOrderMap)
 	json.Unmarshal(out, &assigned_orders)
 
