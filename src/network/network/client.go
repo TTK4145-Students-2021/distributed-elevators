@@ -23,6 +23,7 @@ func runClient(id string, rxChannels RXChannels, networkMessage <-chan types.Net
 	for {
 		select {
 		case pUpdate := <-pCh:
+			// Last UDP peer update is used for a TCP update
 			if pUpdate.TCPconnUpdate {
 				pUpdate = previousPUpdate
 			}
@@ -36,6 +37,7 @@ func runClient(id string, rxChannels RXChannels, networkMessage <-chan types.Net
 			newPeers := getPeerDifference(pUpdate.Peers, previousPeersArray)
 			lostPeers := getPeerDifference(previousPeersArray, pUpdate.Peers)
 
+			//Add and remove peers that are new or are lost
 			for _, p := range newPeers {
 				//If id is ourself, messages are directly sent to local server, noe need for TCP connection
 				if p.Id == id {
@@ -66,8 +68,7 @@ func runClient(id string, rxChannels RXChannels, networkMessage <-chan types.Net
 		case message := <-networkMessage:
 			dat, _ := json.Marshal(message.Data)
 			req := netMsg{
-				ElevatorId:    "102", //Add elevator id here
-				ChannelAdress: message.ChAddr,
+				ChannelAddress: message.ChAddr,
 				Data:          dat,
 			}
 			switch message.Receipient {
@@ -111,7 +112,7 @@ func handlePeerConnection(p peers.Peer, msg <-chan netMsg, pLostCh chan<- peers.
 	defer func() {
 		pLostCh <- p
 		/*Connection is not currently being closed if the peer is removed from currentPeers, while TCP has not closed.
-		The connection will wait for TCP timeout to close, this should not be a problem*/
+		The connection will wait for TCP timeout to close, this is not a problem*/
 		conn.Close()
 	}()
 	if err != nil {

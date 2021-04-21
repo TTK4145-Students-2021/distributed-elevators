@@ -9,8 +9,7 @@ import (
 )
 
 type netMsg struct {
-	ChannelAdress string `json:"mAdd"`
-	ElevatorId    string `json:"reqId"`
+	ChannelAddress string `json:"mAdd"`
 	Data          []byte `json:"data"`
 }
 
@@ -80,7 +79,8 @@ func decodeMsg(msg interface{}, rxChannels RXChannels) {
 	default:
 		fmt.Printf("TCP Server cant handle message type %T", msg)
 	}
-
+	//reflect implementation to allow marshaling data to correct struct,
+	// then send to correct rxChannel given by addr tag
 	w := reflect.TypeOf(rxChannels)
 	x := reflect.ValueOf(rxChannels)
 
@@ -89,7 +89,7 @@ func decodeMsg(msg interface{}, rxChannels RXChannels) {
 		chValue := x.Field(i).Interface()
 		T := reflect.TypeOf(chValue).Elem()
 		typeName := ch.Tag.Get("addr")
-		if request.ChannelAdress == typeName {
+		if request.ChannelAddress == typeName {
 			v := reflect.New(T)
 			err := json.Unmarshal(request.Data, v.Interface())
 			if err != nil {
