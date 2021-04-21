@@ -2,12 +2,11 @@ package network
 
 import (
 	"fmt"
-	//"time"
+	"net"
 
 	"../../types"
 	"../peers"
 	kcp "gopkg.in/xtaci/kcp-go.v5"
-	"net"
 )
 
 type RXChannels struct {

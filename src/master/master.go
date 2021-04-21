@@ -3,15 +3,21 @@ package master
 import (
 	"encoding/json"
 	"fmt"
-
-	// "io/ioutil"
 	"os/exec"
+	"time"
 
 	. "../types"
-	// "github.com/davecgh/go-spew/spew"
 )
 
-/*Types*/
+type MasterChannels struct {
+	IsMasterCh          chan bool
+	PeerLostCh          chan string
+	ToSlavesCh          chan NetworkMessage
+	RegisterOrderCh     chan OrderEvent
+	StateUpdateCh       chan ElevState
+	OrderCopyResponseCh chan GlobalOrderMap
+}
+
 type CombinedElevators struct {
 	GlobalOrders [N_FLOORS][N_BUTTONS - 1]bool `json:"hallRequests"`
 	States       map[string]SingleElevator     `json:"states"`
@@ -25,33 +31,19 @@ type SingleElevator struct {
 	CabOrders [N_FLOORS]bool `json:"cabRequests"`
 }
 
-type MasterChannels struct {
-	IsMasterCh chan bool,
-	PeerLostCh chan string,
-	ToSlavesCh chan NetworkMessage,
-	RegisterOrderCh chan OrderEvent,
-	StateUpdateCh <-chan ElevState,
-	OrderCopyResponseCh chan GlobalOrderMap,
-
-}
-
-func RunMaster(
-	ID string,
-	ch MasterChannels,
-) {
+func RunMaster(ID string, ch MasterChannels) {
 	println("## Running Master ##")
 
 	hallOrders := [N_FLOORS][N_BUTTONS - 1]bool{}
 	allElevatorStates := map[string]SingleElevator{}
 
-	/* REQUEST ALL ORDER LIST FROM PEERS HERE*/
 	requestOrderCopy := NetworkMessage{
 		Data:       true,
 		Receipient: All,
 		ChAddr:     "ordercopyrequestch",
 	}
 
-	ch.ToSlaves <- requestOrderCopy
+	ch.ToSlavesCh <- requestOrderCopy
 
 	for {
 		select {
@@ -73,7 +65,7 @@ func RunMaster(
 
 			if shouldReAssign {
 				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-				ch.ToSlaves <- updatedOrders
+				ch.ToSlavesCh <- updatedOrders
 			}
 
 		case order := <-ch.RegisterOrderCh:
@@ -94,20 +86,21 @@ func RunMaster(
 				}
 			}
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			ch.ToSlaves <- updatedOrders
+			ch.ToSlavesCh <- updatedOrders
 
 		case iAmMaster := <-ch.IsMasterCh:
 			if iAmMaster {
-				ch.ToSlaves <- requestOrderCopy
+				ch.ToSlavesCh <- requestOrderCopy
 				println("requesting order copy")
 			} else {
 				fmt.Println("MASTER SHUTTING DOWN ON ELEVATOR " + ID)
 			sleep:
 				for {
 					select {
-					case iAmMaster := <-isMasterCh:
+					case iAmMaster := <-ch.IsMasterCh:
 						if iAmMaster {
-							ch.ToSlaves <- requestOrderCopy
+							ch.ToSlavesCh <- requestOrderCopy
+							time.Sleep(500 * time.Millisecond)
 							fmt.Println("MASTER WAKING UP")
 							break sleep
 						}
@@ -126,6 +119,8 @@ func RunMaster(
 				elevator.available = false
 				allElevatorStates[lostPeer] = elevator
 			}
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			ch.ToSlavesCh <- updatedOrders
 
 		case orderCopy := <-ch.OrderCopyResponseCh: //rename to mergeResponse?
 			/*
@@ -161,7 +156,7 @@ func RunMaster(
 				}
 			}
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			ch.ToSlaves <- updatedOrders
+			ch.ToSlavesCh <- updatedOrders
 		}
 	}
 }

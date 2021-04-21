@@ -1,23 +1,22 @@
 package orders
 
 import (
-	"../hardware"
 	. "../types"
 )
 
 type OrderChannels struct {
-	LocalOrderCh 	 	chan OrderMatrix,
-	LocalLightCh 	 	chan OrderMatrix,
-	ClearedFloorCh     	chan int,
-	OrdersFromMasterCh 	chan GlobalOrderMap,
-	OrderCopyRequestCh 	chan bool,
-	ToMasterCh         	chan NetworkMessage,
-	KeyPressCh       	chan ButtonEvent,
+	LocalOrderCh       chan OrderMatrix
+	LocalLightCh       chan OrderMatrix
+	ClearedFloorCh     chan int
+	OrdersFromMasterCh chan GlobalOrderMap
+	OrderCopyRequestCh chan bool
+	ToMasterCh         chan NetworkMessage
+	KeyPressCh         chan ButtonEvent
 }
 
 func StartOrderModule(
 	ID string,
-	ch.OrderChannels,
+	ch OrderChannels,
 ) {
 
 	orderList := make(GlobalOrderMap)
@@ -37,9 +36,9 @@ func StartOrderModule(
 				Receipient: Master,
 				ChAddr:     "registerorderch"}
 
-			toMaster <- registerNewOrder
+			ch.ToMasterCh <- registerNewOrder
 
-		case floor := <-ch.ClearedFloor:
+		case floor := <-ch.ClearedFloorCh:
 			orderArray := []ButtonEvent{}
 			for btn := 0; btn < N_BUTTONS; btn++ {
 
@@ -59,11 +58,11 @@ func StartOrderModule(
 				Data:       completedOrder,
 				Receipient: Master,
 				ChAddr:     "registerorderch"}
-			toMaster <- registerCompletedOrder
+			ch.ToMasterCh <- registerCompletedOrder
 
-		case orderList = <-ch.OrdersFromMaster:
+		case orderList = <-ch.OrdersFromMasterCh:
 			localOrders := orderList[ID]
-			localOrderCh <- localOrders
+			ch.LocalOrderCh <- localOrders
 
 			localLights := localOrders
 			for _, orders := range orderList {
@@ -73,15 +72,15 @@ func StartOrderModule(
 					}
 				}
 			}
-			localLightCh <- localLights
+			ch.LocalLightCh <- localLights
 
-		case <-ch.OrderCopyRequest:
+		case <-ch.OrderCopyRequestCh:
 			orderCopy := NetworkMessage{
 				Data:       orderList,
 				Receipient: Master,
 				ChAddr:     "ordercopyresponsech",
 			}
-			toMaster <- orderCopy
+			ch.ToMasterCh <- orderCopy
 		}
 	}
 }

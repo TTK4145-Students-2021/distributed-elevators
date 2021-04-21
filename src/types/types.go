@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-/* Variables */
 const N_FLOORS = 4
 const N_BUTTONS = 3
 
@@ -48,9 +47,16 @@ type OrderMatrix [N_FLOORS][N_BUTTONS]bool
 
 type GlobalOrderMap map[string]OrderMatrix
 
+type Receipient int
+
+const (
+	All Receipient = iota
+	Master
+)
+
 /* #### Structs ####*/
 
-type ElevState struct { //ElevState??
+type ElevState struct {
 	ID          string
 	Behavior    Behavior `json:"behavior"`
 	Floor       int      `json:"floor"`
@@ -58,13 +64,6 @@ type ElevState struct { //ElevState??
 	Available   bool
 	Obstruction bool
 }
-
-type Receipient int
-
-const (
-	All Receipient = iota
-	Master
-)
 
 type NetworkMessage struct {
 	Data       interface{}

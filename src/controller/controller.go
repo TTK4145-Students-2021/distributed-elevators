@@ -15,13 +15,13 @@ type Elevator struct {
 }
 
 type ControllerChannels struct {
-	FloorSensorCh 		chan int,
-	StopSensorCh 		chan bool,
-	ObstructionSensorCh chan bool,
-	LocalOrderCh		chan OrderMatrix,
-	LocalLightCh		chan OrderMatrix,
-	ClearedFloorCh		chan int,
-	ToMasterCh			chan NetworkMessage
+	FloorSensorCh       chan int
+	StopSensorCh        chan bool
+	ObstructionSensorCh chan bool
+	LocalOrderCh        chan OrderMatrix
+	LocalLightCh        chan OrderMatrix
+	ClearedFloorCh      chan int
+	ToMasterCh          chan NetworkMessage
 }
 
 func StartElevatorController(
@@ -121,7 +121,7 @@ func StartElevatorController(
 				hw.SetMotorDirection(hw.MotorDirection(e.State.Direction))
 				errorTimeout.Reset(5 * time.Second)
 			}
-		case newOrders := <-ch.OrderUpdateCh:
+		case newOrders := <-ch.LocalOrderCh:
 			e.orders = newOrders
 			if e.ordersEmpty() {
 				break
@@ -147,7 +147,7 @@ func StartElevatorController(
 				}
 			}
 
-		case newLights := <-ch.LightUpdateCh:
+		case newLights := <-ch.LocalLightCh:
 			for f, row := range newLights {
 				for b, setLamp := range row {
 					hw.SetButtonLamp(ButtonType(b), f, setLamp)

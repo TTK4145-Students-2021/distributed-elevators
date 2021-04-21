@@ -21,12 +21,11 @@ const (
 	MD_Stop                = 2
 )
 
-
 type HardwareChannels struct {
-	FloorSensorCh 		chan int,
-	StopSensorCh 		chan bool,
-	ObstructionSensorCh chan bool,
-	KeyPressCh 			chan ButtonEvent,
+	FloorSensorCh       chan int
+	StopSensorCh        chan bool
+	ObstructionSensorCh chan bool
+	KeyPressCh          chan ButtonEvent
 }
 
 func Init(
@@ -38,7 +37,6 @@ func Init(
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	SetDoorOpenLamp(false)
 	_numFloors = numFloors
 	_mtx = sync.Mutex{}
 	var err error
@@ -48,6 +46,7 @@ func Init(
 	}
 	_initialized = true
 
+	SetDoorOpenLamp(false)
 	go PollFloorSensor(ch.FloorSensorCh)
 	go PollStopButton(ch.StopSensorCh)
 	go PollObstructionSwitch(ch.ObstructionSensorCh)
